@@ -1,0 +1,55 @@
+@import url(https://fonts.googleapis.com/css?family=Open+Sans);
+
+body{
+  background: black;
+}
+
+.banner {
+	width:100%;
+}
+.banner a {
+	margin-left: 0.5em;
+	text-decoration: none;
+	padding:5px;
+	background-color: gray;
+	border-top: 5px;
+	border-color: white;
+}
+
+.banner a:visited {
+    color: black;
+}
+
+.gallery {
+  display: flex;
+  max-height: 10%;
+  flex-wrap: wrap;
+  padding: 0 4px;
+  color: gray;
+}
+
+.column {
+  flex: 10%;
+  max-width: 20%;
+  padding: 0 2px;
+  text-align: center;
+}
+
+.column img {
+  margin-top: 8px;
+  vertical-align: middle;
+  width: 80%;
+}
+
+.column a {
+    color: transparent;
+}
+
+.column a:hover {
+    color: gray;
+}
+
+.colorgram {
+    margin: 5px;
+}
+
