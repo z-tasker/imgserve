@@ -4,15 +4,43 @@
  </header>
  <body>
   <div>
-    <h2 style="color: gray;">experiments</h2>
-    <ul>
-    {% for experiment in experiments %}
-    <br>
-    <div class="banner">
-    <li><a href="/{{ experiment }}">{{ experiment.replace("_", " ") }}</a></li>
+    <div class="cube">
+      <img src="{{ url_for('static', path='/img/cube.png') }}">
+      <div class="column">
+      <br>
+      <form action="/tesselation" id="tesselateform" method="get">
+	<label for="experiment">experiment:</label>
+	<select name="experiment" id="experiment">
+	  {% for experiment in experiments %}
+	  <option value="{{ experiment }}">{{ experiment }}</option>
+	  {% endfor %}
+        </select>
+	<br>
+        <label for="x">x:</label>
+        <select name="x" id="x">
+          {% for x_value in x_values %}
+          <option value="{{ x_value }}">{{ x_value }}</option>
+          {% endfor %}
+        </select>
+        <br>
+        <label for="y">y:</label>
+        <select name="y" id="y">
+          {% for y_value in y_values %}
+          <option value="{{ y_value }}">{{ y_value }}</option>
+          {% endfor %}
+        </select>
+        <br>
+        <label for="z">z:</label>
+        <select name="z" id="z">
+          {% for z_value in z_values %}
+          <option value="{{ z_value }}">{{ z_value }}</option>
+          {% endfor %}
+        </select>
+	<br>
+        <input type="submit">
+      </form>
+      </div>
     </div>
-    {% endfor %}
-    </ul>
   </div>
  </body>
 </html>

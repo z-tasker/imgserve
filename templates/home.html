@@ -1,0 +1,18 @@
+<html>
+ <header>
+  <link rel="stylesheet" href="static/css/styles.css"/>
+ </header>
+ <body>
+  <div>
+    <h2 style="color: gray;">experiments</h2>
+    <ul>
+    {% for experiment in experiments %}
+    <br>
+    <div class="banner">
+    <li><a href="/{{ experiment }}">{{ experiment.replace("_", " ") }}</a></li>
+    </div>
+    {% endfor %}
+    </ul>
+  </div>
+ </body>
+</html>

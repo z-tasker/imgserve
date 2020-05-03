@@ -1,0 +1,32 @@
+<html>
+ <header>
+  <link href="static/css/styles.css" rel="stylesheet"/>
+  <link rel="icon"
+      type="image/x-icon"
+      href="static/img/favicon.ico">
+ </header>
+ <body>
+  <div class="banner">
+    <a href="/">🔍</a>
+  </div>
+  {% for page_key in colorgram_pages.keys() %}
+    <div class="gallery">
+      {% for x_value in colorgram_pages[page_key] %}
+        <div class="column">
+          {{ x_value }}
+  	<br>
+          {% for file_name, description in colorgrams[page_key][x_value].items() %}
+          <div class="colorgram">
+            <a>
+                <img src="static/img/colorgrams/{{ experiment }}/{{ file_name }}.png">
+  	      <p>{{ description }}</p>
+  	  </a>
+          </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+    <hr style="width:100%;text-align:left;margin-left:0">
+  {% endfor %}
+ </body>
+</html>

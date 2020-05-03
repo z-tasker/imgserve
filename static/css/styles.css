@@ -20,9 +20,20 @@ body{
     color: black;
 }
 
+.cube {
+    color: yellow;
+    max-width: 50%;
+    max-height: 50%;
+}
+
+.cube img {
+    background: radial-gradient(closest-side, black, #353833, black);
+    width: 250px;
+ }
+
 .gallery {
-  display: flex;
-  max-height: 10%;
+  display: -webkit-inline-box;
+  max-height: 100%;
   flex-wrap: wrap;
   padding: 0 4px;
   color: gray;
@@ -30,19 +41,25 @@ body{
 
 .column {
   flex: 10%;
-  max-width: 20%;
+  max-width: 15%;
   padding: 0 2px;
   text-align: center;
+  white-space: nowrap;
+  max-height: 100%;
 }
 
 .column img {
-  margin-top: 8px;
+  margin-top: 0px;
+  max-height: 15%;
+  margin-right: 0px;
+  margin-left: 0px;
   vertical-align: middle;
-  width: 80%;
+  width: 90%;
+  max-height: 100%;
 }
 
 .column a {
-    color: transparent;
+    color: gray;
 }
 
 .column a:hover {
