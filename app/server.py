@@ -18,7 +18,7 @@ from starlette.websockets import WebSocket
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
-from es_client import get_client as get_elasticsearch
+from imgserve.es_client import get_client as get_elasticsearch
 
 middleware = [
         Middleware(CORSMiddleware, allow_origins=["compsyn.fourtheye.xyz", "compsyn.fourtheye.xyz:443"], allow_headers=["*"], allow_methods=["*"])
