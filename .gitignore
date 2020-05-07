@@ -1,3 +1,4 @@
 .env
 git.sh
 static/img/colorgrams
+*.egg-info
