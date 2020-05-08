@@ -63,25 +63,24 @@ def get_s3_args(
     s3_parser.add_argument(
         "--s3-region-name",
         type=str,
-        default=os.getenv("SPACES_REGION_NAME", None),
+        default=os.getenv("AWS_REGION_NAME", None),
         help="S3 region",
     )
     s3_parser.add_argument(
         "--s3-endpoint-url",
-        type=str,
-        default=os.getenv("SPACES_ENDPOINT", None),
+        default=os.getenv("AWS_ENDPOINT", None),
         help="S3 endpoint URL (only required for non-AWS hosted",
     )
     s3_parser.add_argument(
         "--s3-access-key-id",
         type=str,
-        default=os.getenv("SPACES_ACCESS_KEY_ID", None),
+        default=os.getenv("AWS_ACCESS_KEY_ID", None),
         required=True,
     )
     s3_parser.add_argument(
         "--s3-secret-access-key",
         type=str,
-        default=os.getenv("SPACES_SECRET_ACCESS_KEY", None),
+        default=os.getenv("AWS_SECRET_ACCESS_KEY", None),
         required=True,
     )
 

@@ -1,0 +1,9 @@
+export AWS_ACCESS_KEY_ID=
+export AWS_SECRET_ACCESS_KEY=
+export AWS_REGION_NAME="ca-central-1"
+export AWS_BUCKET_NAME="compsyn"
+export ES_CLIENT_FQDN="mgraskersearch-0"
+export ES_USERNAME=
+export ES_PASSWORD=
+export ES_CA_CERTS=
+export IMGSERVE_DATA_STORE=

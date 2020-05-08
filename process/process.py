@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import argparse
+import io
+import json
 import logging
 from pathlib import Path
 
 import boto3
 from elasticsearch import Elasticsearch
+
 
 from args import get_elasticsearch_args, get_s3_args
 from assemble import assemble
@@ -15,6 +18,7 @@ logging.basicConfig(
     format=f"%(asctime)s %(levelname)s:%(message)s", datefmt="%Y-%m-%dT%H:%M:%S"
 )
 
+BUCKET_NAME="imgserve"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -50,7 +54,7 @@ def parse_args() -> argparse.Namespace:
         help="Take no action, but show what would happen",
     )
     parser.add_argument(
-        "--s3-bucket", default="qload", help="bucket where img data is stored in S3",
+        "--s3-bucket", required=True, help="bucket where img data is stored in S3",
     )
     parser.add_argument(
         "--force-remote-pull",
@@ -69,6 +73,8 @@ def parse_args() -> argparse.Namespace:
 
 def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
     """ Prepare clients required for processing """
+    assert args.elasticsearch_ca_certs.is_file(), f"{args.elasticsearch_ca_certs} not found!"
+
     elasticsearch_client = Elasticsearch(
         hosts=[
             {
@@ -109,13 +115,19 @@ def main(args: argparse.Namespace) -> None:
         prompt=args.prompt,
     )
 
+    meta_id = "-and-".join(args.experiment_ids)
+
     if args.dry_run:
         logging.info("--dry-run passed, cannot continue past here")
         return
 
     for vector, metadata in get_vectors(downloads):
-        # save colorgram in S3
-        # associate metadata with vector, index
+        image_bytes = io.BytesIO()
+        vector.colorgram.save(image_bytes, format='PNG')
+        object_path = Path(meta_id).joinpath(metadata["s3_key"])
+        s3_client.put_object(Body=image_bytes.getvalue(), Bucket=args.s3_bucket, Key=str(object_path))
+
+        print(json.dumps(metadata, indent=2))
         pass
 
 

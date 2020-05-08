@@ -1,6 +1,7 @@
 .env
 git.sh
 static/img/colorgrams
+*.swp
 *.egg-info
 __pycache__
 jzazbz_array.npy
