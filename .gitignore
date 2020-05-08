@@ -3,3 +3,5 @@ git.sh
 static/img/colorgrams
 *.egg-info
 __pycache__
+jzazbz_array.npy
+dist
