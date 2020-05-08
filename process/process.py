@@ -80,10 +80,12 @@ def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clien
 
 
 def main(args: argparse.Namespace) -> None:
+    """ image analysis from the point of archive """
+
     elasticsearch_client, s3_client = get_clients(args)
 
     # assemble "downloads" folder from data collected in experiment_ids according to the dimensions configured
-    assemble(
+    downloads: Path = assemble(
         elasticsearch_client=elasticsearch_client,
         s3_client=s3_client,
         experiment_ids=args.experiment_ids,
@@ -93,6 +95,15 @@ def main(args: argparse.Namespace) -> None:
         force_pull=args.force_pull,
         prompt=args.prompt,
     )
+
+    if args.dry_run:
+        logging.info("--dry-run passed, cannot continue past here")
+        return
+
+    for vector, metadata in get_vectors(downloads):
+        # save colorgram in S3
+        # associate metadata with vector, index
+        pass
 
 
 if __name__ == "__main__":
