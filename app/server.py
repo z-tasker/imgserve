@@ -21,7 +21,12 @@ from starlette.middleware.cors import CORSMiddleware
 from imgserve.es_client import get_client as get_elasticsearch
 
 middleware = [
-        Middleware(CORSMiddleware, allow_origins=["compsyn.fourtheye.xyz", "compsyn.fourtheye.xyz:443"], allow_headers=["*"], allow_methods=["*"])
+    Middleware(
+        CORSMiddleware,
+        allow_origins=["compsyn.fourtheye.xyz", "compsyn.fourtheye.xyz:443"],
+        allow_headers=["*"],
+        allow_methods=["*"],
+    )
 ]
 
 app = Starlette(middleware=middleware)
@@ -31,29 +36,29 @@ templates = Jinja2Templates(directory="templates")
 
 log = logging.getLogger()
 
+
 @app.route("/")
 async def search(request: Request):
     template = "home.html"
 
-    experiments = [ p.name for p in Path("static/img/colorgrams").glob("*") ]
-    context= {
-        "request": request,
-        "experiments": experiments
-    }
+    experiments = [p.name for p in Path("static/img/colorgrams").glob("*")]
+    context = {"request": request, "experiments": experiments}
     return templates.TemplateResponse(template, context)
+
 
 @app.route("/search")
 async def search(request: Request):
     template = "search.html"
     context = {
         "request": request,
-        "experiments": [ p.name for p in Path("static/img/colorgrams").glob("*") ],
+        "experiments": [p.name for p in Path("static/img/colorgrams").glob("*")],
         "x_values": ["query"],
         "y_values": ["region"],
-        "z_values": ["time", "domain", "eng_ref"]
+        "z_values": ["time", "domain", "eng_ref"],
     }
 
     return templates.TemplateResponse(template, context)
+
 
 @app.route("/tesselation")
 async def tesselation(request: Request):
@@ -64,7 +69,9 @@ async def tesselation(request: Request):
     y = request.query_params["y"]
     z = request.query_params["z"]
 
-    all_colorgrams = [ p.stem for p in Path(f"static/img/colorgrams/{experiment}").glob("*") ] 
+    all_colorgrams = [
+        p.stem for p in Path(f"static/img/colorgrams/{experiment}").glob("*")
+    ]
 
     pages = defaultdict(set)
     x_values = set()
@@ -83,7 +90,11 @@ async def tesselation(request: Request):
 
     def get_colorgram_with(x_value: str, y_value: str, z_value: str) -> str:
         for colorgram_slug in all_colorgrams:
-            if f"{x}={x_value}" in colorgram_slug and f"{y}={y_value}" in colorgram_slug and f"{z}={z_value}" in colorgram_slug:
+            if (
+                f"{x}={x_value}" in colorgram_slug
+                and f"{y}={y_value}" in colorgram_slug
+                and f"{z}={z_value}" in colorgram_slug
+            ):
                 return colorgram_slug
 
     colorgram_pages = dict()
@@ -91,15 +102,16 @@ async def tesselation(request: Request):
         page = defaultdict(dict)
         for x_value in x_values:
             for y_value in y_values:
-                page[x_value][y_value] = get_colorgram_with(x_value=x_value, y_value=y_value, z_value=page_key)
+                page[x_value][y_value] = get_colorgram_with(
+                    x_value=x_value, y_value=y_value, z_value=page_key
+                )
         colorgram_pages[page_key] = page
-
 
     context = {
         "experiment": experiment,
         "request": request,
         "x_values": x_values,
-        "colorgram_pages": colorgram_pages
+        "colorgram_pages": colorgram_pages,
     }
 
     return templates.TemplateResponse(template, context)
@@ -111,14 +123,23 @@ async def generated(request: Request):
 
     colorgrams = defaultdict(dict)
     experiment = Path(request["path"]).name
-    all_colorgrams = sorted([ f.stem for f in Path(__file__).parent.joinpath(f"static/img/colorgrams/{experiment}").iterdir() ])
+    all_colorgrams = sorted(
+        [
+            f.stem
+            for f in Path(__file__)
+            .parent.joinpath(f"static/img/colorgrams/{experiment}")
+            .iterdir()
+        ]
+    )
     for cg in all_colorgrams:
-        dimensions = { dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|") }
-        colorgrams[dimensions["query"]][cg] = ", ".join([ f"{value}" for attr, value in sorted(dimensions.items())])
+        dimensions = {dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|")}
+        colorgrams[dimensions["query"]][cg] = ", ".join(
+            [f"{value}" for attr, value in sorted(dimensions.items())]
+        )
 
     queries = list(colorgrams.keys())
 
-    #manually order
+    # manually order
 
     manually_ordered = defaultdict(dict)
     for region in ["fra1", "ams3", "nyc1", "blr1", "sgp1"]:
@@ -131,7 +152,7 @@ async def generated(request: Request):
         "experiment": experiment,
         "request": request,
         "queries": queries,
-        "colorgrams": manually_ordered
+        "colorgrams": manually_ordered,
     }
     return templates.TemplateResponse(template, context)
 
@@ -142,16 +163,25 @@ async def generated(request: Request):
 
     colorgrams = defaultdict(dict)
     experiment = Path(request["path"]).name
-    all_colorgrams = sorted([ f.stem for f in Path(__file__).parent.joinpath(f"static/img/colorgrams/{experiment}").iterdir() ])
+    all_colorgrams = sorted(
+        [
+            f.stem
+            for f in Path(__file__)
+            .parent.joinpath(f"static/img/colorgrams/{experiment}")
+            .iterdir()
+        ]
+    )
     eng_refs = defaultdict(list)
     for cg in all_colorgrams:
-        dimensions = { dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|") }
+        dimensions = {dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|")}
         eng_refs[dimensions["eng_ref"]].append(dimensions["query"])
-        colorgrams[dimensions["query"]][cg] = ", ".join([ f"{value}" for attr, value in sorted(dimensions.items())])
+        colorgrams[dimensions["query"]][cg] = ", ".join(
+            [f"{value}" for attr, value in sorted(dimensions.items())]
+        )
 
     queries = list(colorgrams.keys())
 
-    #manually order
+    # manually order
 
     eng_ref_sorted = dict()
     for eng_ref in eng_refs:
@@ -174,7 +204,7 @@ async def generated(request: Request):
         "experiment": experiment,
         "request": request,
         "queries": queries,
-        "colorgrams": eng_ref_sorted
+        "colorgrams": eng_ref_sorted,
     }
     return templates.TemplateResponse(template, context)
 
@@ -185,10 +215,19 @@ async def generated(request: Request):
 
     colorgrams = defaultdict(dict)
     experiment = Path(request["path"]).name
-    all_colorgrams = sorted([ f.stem for f in Path(__file__).parent.joinpath(f"static/img/colorgrams/{experiment}").iterdir() ])
+    all_colorgrams = sorted(
+        [
+            f.stem
+            for f in Path(__file__)
+            .parent.joinpath(f"static/img/colorgrams/{experiment}")
+            .iterdir()
+        ]
+    )
     for cg in all_colorgrams:
-        dimensions = { dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|") }
-        colorgrams[dimensions["query"]][cg] = ", ".join([ f"{value}" for attr, value in sorted(dimensions.items())])
+        dimensions = {dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|")}
+        colorgrams[dimensions["query"]][cg] = ", ".join(
+            [f"{value}" for attr, value in sorted(dimensions.items())]
+        )
 
     queries = list(colorgrams.keys())
 
@@ -196,7 +235,7 @@ async def generated(request: Request):
         "experiment": experiment,
         "request": request,
         "queries": queries,
-        "colorgrams": colorgrams
+        "colorgrams": colorgrams,
     }
     return templates.TemplateResponse(template, context)
 
