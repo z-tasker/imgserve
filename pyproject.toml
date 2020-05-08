@@ -12,6 +12,8 @@ aiofiles = "^0.5.0"
 jinja2 = "^2.11.2"
 elasticsearch = "^7.6.0"
 compsyn = { file = "./dist/compsyn-0.2.1-py3-none-any.whl" }
+boto3 = "^1.13.5"
+elasticsearch_dsl = "^7.2.0"
 
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"

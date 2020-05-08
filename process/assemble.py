@@ -72,6 +72,7 @@ def recursively_combine(
 def assemble(
     elasticsearch_client: Elasticsearch,
     s3_client: botocore.clients.S3,
+    bucket_name: str,
     experiment_ids: List[str],
     dimensions: List[str],
     local_data_store: Path,
@@ -130,16 +131,17 @@ def assemble(
                 images_directory = downloads_path.joinpath(slug)
                 for image_path in image_paths:
                     # if we already have the .zip archive at this path, don't retrieve from s3
+                    relative_path = image_path.relative_to("data")
                     archive_path = local_data_store.joinpath(
-                        image_path.relative_to("data")
-                    )
+                        relative_path.parts[0]
+                    ).joinpath(relative_path)
                     image_assembly_path = images_directory.joinpath(image_path.name)
                     image_assembly_path.parent.mkdir(exist_ok=True, parents=True)
                     if archive_path.is_file() and not force_remote_pull:
                         image_assembly_path.write_bytes(archive_path.read_bytes())
                     else:
                         image_obj = s3_client.get_object(
-                            Bucket=BUCKET_NAME, Key=str(image_path)
+                            Bucket=bucket_name, Key=str(image_path)
                         )
                         images_directory.joinpath(image_path.name).write_bytes(
                             image_obj["Body"].read()

@@ -2,12 +2,14 @@
 from __future__ import annotations
 import argparse
 import logging
+from pathlib import Path
 
 import boto3
 from elasticsearch import Elasticsearch
 
 from args import get_elasticsearch_args, get_s3_args
 from assemble import assemble
+from vectors import get_vectors
 
 logging.basicConfig(
     format=f"%(asctime)s %(levelname)s:%(message)s", datefmt="%Y-%m-%dT%H:%M:%S"
@@ -26,8 +28,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--local-data-store",
+        type=Path,
         required=True,
-        help="path to directory to store data locally",
+        help="Path to directory to store data locally",
+    )
+    parser.add_argument(
+        "--downloads-directory",
+        type=Path,
+        default="imgserve/process",
+        help="Path to assemble images in 'downloads' folder",
     )
     parser.add_argument(
         "--dimensions",
@@ -41,7 +50,10 @@ def parse_args() -> argparse.Namespace:
         help="Take no action, but show what would happen",
     )
     parser.add_argument(
-        "--force-pull",
+        "--s3-bucket", default="qload", help="bucket where img data is stored in S3",
+    )
+    parser.add_argument(
+        "--force-remote-pull",
         default=False,
         help="Pull images from S3 even if they are already on disk",
     )
@@ -88,11 +100,12 @@ def main(args: argparse.Namespace) -> None:
     downloads: Path = assemble(
         elasticsearch_client=elasticsearch_client,
         s3_client=s3_client,
+        bucket_name=args.s3_bucket,
         experiment_ids=args.experiment_ids,
         dimensions=args.dimensions,
         local_data_store=args.local_data_store,
         dry_run=args.dry_run,
-        force_pull=args.force_pull,
+        force_remote_pull=args.force_remote_pull,
         prompt=args.prompt,
     )
 
