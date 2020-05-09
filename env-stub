@@ -6,4 +6,4 @@ export ES_CLIENT_FQDN="mgraskersearch-0"
 export ES_USERNAME=
 export ES_PASSWORD=
 export ES_CA_CERTS=
-export IMGSERVE_DATA_STORE=
+export IMGSERVE_LOCAL_DATA_STORE=

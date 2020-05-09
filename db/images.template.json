@@ -1,0 +1,107 @@
+{
+  "index_patterns": ["images"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "properties" : {
+      "experiment_name" : {
+        "type" : "keyword"
+      },
+      "experiment_id" : {
+        "type" : "keyword"
+      },
+      "host_created" : {
+        "format" : "date_time_no_millis",
+        "type" : "date"
+      },
+      "image_url" : {
+        "type" : "keyword"
+      },
+      "query" : {
+        "type" : "keyword"
+      },
+      "language" : {
+        "type" : "keyword"
+      },
+      "eng_ref" : {
+        "type" : "keyword"
+      },
+      "host_type" : {
+        "type" : "keyword"
+      },
+      "ipgeolocation" : {
+        "properties" : {
+          "continent_name" : {
+            "type" : "keyword"
+          },
+          "languages" : {
+            "type" : "keyword"
+          },
+          "connection_type" : {
+            "type" : "keyword"
+          },
+          "city" : {
+            "type" : "keyword"
+          },
+          "ip" : {
+            "type" : "ip"
+          },
+          "isp" : {
+            "type" : "keyword"
+          },
+          "continent_code" : {
+            "type" : "keyword"
+          },
+          "district" : {
+            "type" : "keyword"
+          },
+          "organization" : {
+            "type" : "keyword"
+          },
+          "country_code2" : {
+            "type" : "keyword"
+          },
+          "country_name" : {
+            "type" : "keyword"
+          },
+          "state_prov" : {
+            "type" : "keyword"
+          },
+          "latitude" : {
+            "type" : "float"
+          },
+          "longitude" : {
+            "type" : "float"
+          }
+        }
+      },
+      "hostname" : {
+        "type" : "keyword"
+      },
+      "endpoint" : {
+        "type" : "keyword"
+      },
+      "size" : {
+        "type" : "keyword"
+      },
+      "search_domain" : {
+        "type" : "keyword"
+      },
+      "image_id" : {
+        "type" : "keyword"
+      },
+      "region" : {
+        "type" : "keyword"
+      },
+      "timestamp" : {
+        "format" : "date_time_no_millis",
+        "type" : "date"
+      },
+      "ran_at": {
+        "type": "date"
+      }
+    }
+  }
+}

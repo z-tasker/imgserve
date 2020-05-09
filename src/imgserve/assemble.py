@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 import logging
 import os
@@ -69,17 +68,30 @@ def recursively_combine(
             yield (slug, query)
 
 
-def assemble(
+def assemble_downloads(
     elasticsearch_client: Elasticsearch,
     s3_client: botocore.clients.S3,
     bucket_name: str,
     experiment_ids: List[str],
     dimensions: List[str],
     local_data_store: Path,
+    downloads_directory: Path,
     dry_run: bool = False,
     force_remote_pull: bool = False,
     prompt: bool = True,
 ) -> Path:
+    """
+        Assemble a "downloads" folder for compsyn to run on.
+        Data may already exist locally, or can be gathered from S3.
+        In either case, Elasticsearch is used as the source of truth for gathering the required images.
+    """
+
+    # enforce downloads_directory is relative to local_data_store
+    if downloads_directory.is_absolute():
+        downloads_directory = downloads_directory.relative_to(local_data_store)
+    downloads_path = local_data_store.joinpath(downloads_directory)
+
+    # query elasticsearch to assemble a list of required images
     shared_filter = {"terms": {"experiment_id": experiment_ids}}
     field_values = {
         field: list(
@@ -95,18 +107,23 @@ def assemble(
     image_directories = defaultdict(list)
     for slug, query in queries:
         query["query"]["bool"]["filter"].append(shared_filter)
-        for image_doc in helpers.scan(elasticsearch_client, query=query):
+        for image_doc in helpers.scan(
+            elasticsearch_client, index="images", query=query
+        ):
             source = image_doc["_source"]
-            relative_image_path = (
-                Path("data")
-                .joinpath(source["experiment_id"])
-                .joinpath(source["hostname"])
-                .joinpath(source["query"].replace(" ", "_"))
-                .joinpath(source["ran_at"])
-                .joinpath("images")
-                .joinpath(source["image_id"])
-                .with_suffix(".jpg")
-            )
+            try:
+                relative_image_path = (
+                    Path("data")
+                    .joinpath(source["experiment_id"])
+                    .joinpath(source["hostname"])
+                    .joinpath(source["query"].replace(" ", "_"))
+                    .joinpath(source["ran_at"])
+                    .joinpath("images")
+                    .joinpath(source["image_id"])
+                    .with_suffix(".jpg")
+                )
+            except KeyError:
+                print(image_doc)
             image_directories[slug].append(relative_image_path)
     total_images = sum([len(image_paths) for image_paths in image_directories.values()])
     if not dry_run:
@@ -115,7 +132,7 @@ def assemble(
             existing_at_path = list(downloads_path.iterdir())
             if len(existing_at_path) > 0:
                 if prompt and input(
-                    f"{len(existing_at_path)} items found at {downloads_path}, clear for this new run? (y/n)"
+                    f"{len(existing_at_path)} items found at {downloads_path}, clear for this new run? (y/n) "
                 ).lower() not in ["y", "yes"]:
                     logging.warning(
                         "not clearing, new results will be mixed with existing data"

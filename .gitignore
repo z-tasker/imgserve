@@ -1,6 +1,7 @@
 .env
 git.sh
-static/img/colorgrams
+app/static/img/colorgrams
+app/static/csv/experiments
 *.swp
 *.egg-info
 __pycache__

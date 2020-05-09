@@ -1,4 +1,4 @@
-poetry run ./process/process.py \
+poetry run ./bin/colorgrams.py \
   --elasticsearch-client-fqdn "${ES_CLIENT_FQDN}" \
   --elasticsearch-username "${ES_USERNAME}" \
   --elasticsearch-password "${ES_PASSWORD}" \

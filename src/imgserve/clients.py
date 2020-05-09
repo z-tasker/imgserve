@@ -3,6 +3,9 @@ import argparse
 import os
 from pathlib import Path
 
+import boto3
+from elasticsearch import Elasticsearch
+
 
 def get_elasticsearch_args(
     parser: Optional[argparse.ArgumentParser] = None,
@@ -85,3 +88,31 @@ def get_s3_args(
     )
 
     return parser
+
+
+def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
+    """ Prepare clients required for processing """
+    assert (
+        args.elasticsearch_ca_certs.is_file()
+    ), f"{args.elasticsearch_ca_certs} not found!"
+
+    elasticsearch_client = Elasticsearch(
+        hosts=[
+            {
+                "host": args.elasticsearch_client_fqdn,
+                "port": args.elasticsearch_client_port,
+            }
+        ],
+        http_auth=(args.elasticsearch_username, args.elasticsearch_password),
+        use_ssl=True,
+        verify_certs=True,
+        ca_certs=args.elasticsearch_ca_certs,
+    )
+    s3_client = boto3.session.Session().client(
+        "s3",
+        region_name=args.s3_region_name,
+        endpoint_url=args.s3_endpoint_url,
+        aws_access_key_id=args.s3_access_key_id,
+        aws_secret_access_key=args.s3_secret_access_key,
+    )
+    return elasticsearch_client, s3_client

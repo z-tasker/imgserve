@@ -3,22 +3,25 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import logging
 from pathlib import Path
 
-import boto3
-from elasticsearch import Elasticsearch
+from imgserve import get_experiment_colorgrams_path, get_experiment_csv_path, STATIC
+from imgserve.assemble import assemble_downloads
+from imgserve.clients import get_elasticsearch_args, get_s3_args, get_clients
+from imgserve.elasticsearch import index_to_elasticsearch
+from imgserve.logger import simple_logger
+from imgserve.s3 import s3_put_image
 
-
-from args import get_elasticsearch_args, get_s3_args
-from assemble import assemble
 from vectors import get_vectors
 
-logging.basicConfig(
-    format=f"%(asctime)s %(levelname)s:%(message)s", datefmt="%Y-%m-%dT%H:%M:%S"
+BUCKET_NAME = "imgserve"
+COLORGRAMS_INDEX_TEMPLATE = json.loads(
+    Path(__file__).parents[1].joinpath("db/colorgrams.template.json").read_text()
 )
+assert (
+    len(COLORGRAMS_INDEX_TEMPLATE) > 0
+), f"the index template 'db/colorgrams.template.json' must exist"
 
-BUCKET_NAME="imgserve"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -67,49 +70,33 @@ def parse_args() -> argparse.Namespace:
         action="store_false",
         help="don't prompt before potentially destructive actions",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="overwrite existing assets: colorgram images in S3 and documents in Elasticsearch",
+    )
 
     return parser.parse_args()
-
-
-def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
-    """ Prepare clients required for processing """
-    assert args.elasticsearch_ca_certs.is_file(), f"{args.elasticsearch_ca_certs} not found!"
-
-    elasticsearch_client = Elasticsearch(
-        hosts=[
-            {
-                "host": args.elasticsearch_client_fqdn,
-                "port": args.elasticsearch_client_port,
-            }
-        ],
-        http_auth=(args.elasticsearch_username, args.elasticsearch_password),
-        use_ssl=True,
-        verify_certs=True,
-        ca_certs=args.elasticsearch_ca_certs,
-    )
-    s3_client = boto3.session.Session().client(
-        "s3",
-        region_name=args.s3_region_name,
-        endpoint_url=args.s3_endpoint_url,
-        aws_access_key_id=args.s3_access_key_id,
-        aws_secret_access_key=args.s3_secret_access_key,
-    )
-    return elasticsearch_client, s3_client
 
 
 def main(args: argparse.Namespace) -> None:
     """ image analysis from the point of archive """
 
+    log = simple_logger(f"colorgrams")
+
+    log.info("starting image processing...")
+
     elasticsearch_client, s3_client = get_clients(args)
 
     # assemble "downloads" folder from data collected in experiment_ids according to the dimensions configured
-    downloads: Path = assemble(
+    downloads: Path = assemble_downloads(
         elasticsearch_client=elasticsearch_client,
         s3_client=s3_client,
         bucket_name=args.s3_bucket,
         experiment_ids=args.experiment_ids,
         dimensions=args.dimensions,
         local_data_store=args.local_data_store,
+        downloads_directory=args.downloads_directory,
         dry_run=args.dry_run,
         force_remote_pull=args.force_remote_pull,
         prompt=args.prompt,
@@ -118,17 +105,46 @@ def main(args: argparse.Namespace) -> None:
     meta_id = "-and-".join(args.experiment_ids)
 
     if args.dry_run:
-        logging.info("--dry-run passed, cannot continue past here")
+        log.info("--dry-run passed, cannot continue past here")
         return
 
+    # create compsyn.vectors.Vector objects out of each folder, and also store metadata for Elasticsearch
+    log.info(f"generating vectors from {downloads}...")
+    colorgram_documents = list()
     for vector, metadata in get_vectors(downloads):
-        image_bytes = io.BytesIO()
-        vector.colorgram.save(image_bytes, format='PNG')
-        object_path = Path(meta_id).joinpath(metadata["s3_key"])
-        s3_client.put_object(Body=image_bytes.getvalue(), Bucket=args.s3_bucket, Key=str(object_path))
+        # store colorgram images in S3
+        s3_put_image(
+            s3_client=s3_client,
+            image=vector.colorgram,
+            bucket=args.s3_bucket,
+            object_path=Path(meta_id).joinpath(metadata["s3_key"]),
+            overwrite=args.overwrite,
+        )
+        # save colorgram locally, regardless of overwrite
+        vector.colorgram.save(
+            get_experiment_colorgrams_path(
+                local_data_store=args.local_data_store,
+                app_static_path=STATIC,
+                name=meta_id,
+            )
+            .joinpath(vector.word)
+            .with_suffix(".png")
+        )
+        # queue colorgram metadata for indexing to Elasticsearch
+        colorgram_documents.append(metadata)
 
-        print(json.dumps(metadata, indent=2))
-        pass
+    log.info(f"{len(colorgram_documents)} colorgrams persisted to S3, indexing...")
+
+    elasticsearch_client.indices.put_template(
+        name="colorgrams", body=COLORGRAMS_INDEX_TEMPLATE
+    )
+    index_to_elasticsearch(
+        elasticsearch_client=elasticsearch_client,
+        index="colorgrams",
+        docs=colorgram_documents,
+        identity_fields=["experiment_id", "downloads", "s3_key"],
+        overwrite=args.overwrite,
+    )
 
 
 if __name__ == "__main__":
