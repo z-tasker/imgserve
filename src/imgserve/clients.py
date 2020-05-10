@@ -1,6 +1,7 @@
 from __future__ import annotations
 import argparse
 import os
+import socket
 from pathlib import Path
 
 import boto3
@@ -89,6 +90,90 @@ def get_s3_args(
 
     return parser
 
+def get_experiment_args(parser: Optional[argparse.ArgumentParser] = None) -> argparse.ArgumentParser:
+
+    if parser is None:
+        parser = argparse.ArgumentParser()
+
+    experiment_parser = parser.add_argument_group("experiment")
+
+    experiment_parser.add_argument(
+        "--trial-ids",
+        required=True,
+        nargs="+",
+        help="trial ids to gather images from",
+    )
+    experiment_parser.add_argument(
+        "--trial-hostname",
+        default=socket.gethostname(),
+        help="hostname to use in metadata for images gathered by imgserve"
+    )
+    experiment_parser.add_argument(
+        "--run-trial",
+        action="store_true",
+        help="run the experiment queries to the configured trial id"
+    )
+    experiment_parser.add_argument(
+        "--max-images",
+        default=100,
+        help="if --run-trial is set, number of images to collect"
+    )
+    experiment_parser.add_argument(
+        "--experiment-name",
+        required=True,
+        help="Common name for the experiment this analysis supports",
+    )
+    experiment_parser.add_argument(
+        "--local-data-store",
+        type=Path,
+        required=True,
+        help="Path to directory to store data locally",
+    )
+    experiment_parser.add_argument(
+        "--dimensions",
+        required=True,
+        nargs="+",
+        help="fields to split images by, a folder of images will be created for each combination of values across each field",
+    )
+    experiment_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Take no action, but show what would happen",
+    )
+    experiment_parser.add_argument(
+        "--s3-bucket", required=True, help="bucket where img data is stored in S3",
+    )
+    experiment_parser.add_argument(
+        "--force-remote-pull",
+        default=False,
+        help="Pull images from S3 even if they are already on disk",
+    )
+    experiment_parser.add_argument(
+        "--no-prompt",
+        dest="prompt",
+        action="store_false",
+        help="don't prompt before potentially destructive actions",
+    )
+    experiment_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="overwrite existing assets: colorgram images in S3 and documents in Elasticsearch",
+    )
+
+    return parser
+
+def get_imgserve_args(parser: Optional[argparse.ArgumentParser] = None) -> argparse.ArgumentParser:
+
+    if parser is None:
+        parser = argparse.ArgumentParser()
+
+    imgserve_parser = parser.add_argument_group("imgserve")
+
+    imgserve_parser.add_argument("--remote-url", default="https://compsyn.fourtheye.xyz", help="url to use for source of experiment data, set to 'localhost:8080' to use local instance of the imgserve app")
+    imgserve_parser.add_argument("--remote-username", required=False, help="username to use for authentication against remote imgserve")
+    imgserve_parser.add_argument("--remote-password", required=False, help="username to use for authentication against remote imgserve")
+
+    return parser
 
 def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
     """ Prepare clients required for processing """

@@ -7,3 +7,6 @@ export ES_USERNAME=
 export ES_PASSWORD=
 export ES_CA_CERTS=
 export IMGSERVE_LOCAL_DATA_STORE=
+export IMGSERVE_REMOTE_URL="https://compsyn.fourtheye.xyz"
+export IMGSERVE_REMOTE_USERNAME=
+export IMGSERVE_REMOTE_PASSWORD=

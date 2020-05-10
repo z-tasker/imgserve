@@ -9,6 +9,27 @@ from .logger import simple_logger
 log = simple_logger("imgserve.elasticsearch")
 
 
+def _overridable_template_paths() -> Dict[str, Any]:
+    COLORGRAMS_INDEX_TEMPLATE = json.loads(
+        Path(__file__).parents[2].joinpath("db/colorgrams.template.json").read_text()
+    )
+    assert (
+        len(COLORGRAMS_INDEX_TEMPLATE) > 0
+    ), f"the index template 'db/colorgrams.template.json' must exist"
+    
+    RAW_IMAGES_INDEX_TEMPLATE = json.loads(
+        Path(__file__).parents[2].joinpath("db/raw-images.template.json").read_text()
+    )
+    assert (
+        len(RAW_IMAGES_INDEX_TEMPLATE) > 0
+    ), f"the index template 'db/raw-images.template.json' must exist"
+
+    return {
+        "colorgrams": COLORGRAMS_INDEX_TEMPLATE,
+        "raw-images": RAW_IMAGES_INDEX_TEMPLATE,
+    }
+
+
 def document_exists(
     elasticsearch_client: Elasticsearch,
     doc: Dict[str, Any],
@@ -19,11 +40,15 @@ def document_exists(
 
     query_filters = list()
     for field in identity_fields:
-        query_filters.append(
-            {"terms": {field: doc[field]}}
-            if isinstance(doc[field], list)
-            else {"term": {field: doc[field]}}
-        )
+        try:
+            query_filters.append(
+                {"terms": {field: doc[field]}}
+                if isinstance(doc[field], list)
+                else {"term": {field: doc[field]}}
+            )
+        except KeyError:
+            # if the doc is missing an identity field, we will index the new document
+            return False
 
     body = {"query": {"bool": {"filter": query_filters}}}
 
@@ -85,6 +110,13 @@ def index_to_elasticsearch(
     identity_fields: List[str],
     overwrite: bool = False,
 ) -> None:
+
+    try:
+        elasticsearch_client.indices.put_template(
+            name=index, body=_overridable_template_paths[index]
+        )
+    except KeyError as e:
+        raise MissingTemplateError(f"no index template for {index}, please add one to db/{index}.template.json and update '_overridable_template_paths' in src/imgserve/elasticsearch.py") from e
 
     elasticsearch.helpers.bulk(
         elasticsearch_client,

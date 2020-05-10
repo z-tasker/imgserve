@@ -10,6 +10,8 @@ from tqdm import tqdm
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Search
 
+from .errors import NoImagesInElasticsearchError
+
 """
   Assemble image data
 """
@@ -72,10 +74,10 @@ def assemble_downloads(
     elasticsearch_client: Elasticsearch,
     s3_client: botocore.clients.S3,
     bucket_name: str,
-    experiment_ids: List[str],
+    trial_ids: List[str],
+    experiment_name: str,
     dimensions: List[str],
     local_data_store: Path,
-    downloads_directory: Path,
     dry_run: bool = False,
     force_remote_pull: bool = False,
     prompt: bool = True,
@@ -86,13 +88,10 @@ def assemble_downloads(
         In either case, Elasticsearch is used as the source of truth for gathering the required images.
     """
 
-    # enforce downloads_directory is relative to local_data_store
-    if downloads_directory.is_absolute():
-        downloads_directory = downloads_directory.relative_to(local_data_store)
-    downloads_path = local_data_store.joinpath(downloads_directory)
+    downloads_path = local_data_store.joinpath(experiment_name).joinpath("downloads")
 
     # query elasticsearch to assemble a list of required images
-    shared_filter = {"terms": {"experiment_id": experiment_ids}}
+    shared_filter = {"terms": {"trial_id": trial_ids}}
     field_values = {
         field: list(
             all_field_values(
@@ -114,7 +113,7 @@ def assemble_downloads(
             try:
                 relative_image_path = (
                     Path("data")
-                    .joinpath(source["experiment_id"])
+                    .joinpath(source["trial_id"])
                     .joinpath(source["hostname"])
                     .joinpath(source["query"].replace(" ", "_"))
                     .joinpath(source["ran_at"])
@@ -126,8 +125,9 @@ def assemble_downloads(
                 print(image_doc)
             image_directories[slug].append(relative_image_path)
     total_images = sum([len(image_paths) for image_paths in image_directories.values()])
+    if total_images == 0:
+        raise NoImagesInElasticsearchError(f"0 images available for assembly!")
     if not dry_run:
-        downloads_path = local_data_store.joinpath("downloads")
         if downloads_path.is_dir():
             existing_at_path = list(downloads_path.iterdir())
             if len(existing_at_path) > 0:
