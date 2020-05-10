@@ -1,5 +1,5 @@
 {
-  "index_patterns": ["images"],
+  "index_patterns": ["raw-images"],
   "settings": {
     "number_of_shards": 1,
     "number_of_replicas": 1
@@ -30,6 +30,9 @@
       },
       "host_type" : {
         "type" : "keyword"
+      },
+      "part_of_speech": {
+        "type": "keyword"
       },
       "ipgeolocation" : {
         "properties" : {

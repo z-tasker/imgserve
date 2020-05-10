@@ -12,13 +12,14 @@ from .logger import simple_logger
 
 log = simple_logger("gather raw images")
 
+
 def summarize_experiment(manifest: Dict[str, Any]) -> str:
     """
         construct experiment results summary 
     """
 
     heirarchy = dict()
-    malformed = 0 
+    malformed = 0
     for doc in manifest:
         try:
             query_term = doc["query"]
@@ -30,7 +31,7 @@ def summarize_experiment(manifest: Dict[str, Any]) -> str:
             heirarchy[query_term][region] += 1
             heirarchy[query_term]["domains"][image_domain] += 1
         except KeyError as e:
-            malformed +=1
+            malformed += 1
             continue
 
     log.warning(f"{malformed}/{len(manifest)} documents malformed!")
@@ -46,7 +47,6 @@ def summarize_experiment(manifest: Dict[str, Any]) -> str:
         heirarchy[query_term]["domains"] = top_domains
 
     return json.dumps(heirarchy, indent=2, ensure_ascii=False)
-
 
 
 def download_experiment_data(
@@ -81,7 +81,7 @@ def download_experiment_data(
                 if not dry_run:
                     to_download.append(object_path)
 
-    already_downloaded = 0 
+    already_downloaded = 0
     with tqdm(
         total=total_bytes, desc="Downloaded", unit="bytes", unit_scale=True
     ) as pbar:
@@ -116,7 +116,7 @@ def gather_raw_images(
     experiment_id: str,
     local_data_path: Path,
     dry_run: bool = False,
-    skip_download: bool = False
+    skip_download: bool = False,
 ) -> None:
     if not skip_download:
         log.info(f"gathering results for {experiment_id} from S3...")

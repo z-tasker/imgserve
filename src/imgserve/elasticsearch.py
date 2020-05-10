@@ -9,6 +9,9 @@ from .logger import simple_logger
 log = simple_logger("imgserve.elasticsearch")
 
 
+COLORGRAMS_INDEX_PATTERN = "colorgrams"
+RAW_IMAGES_INDEX_PATTERN = "raw-images"
+
 def _overridable_template_paths() -> Dict[str, Any]:
     COLORGRAMS_INDEX_TEMPLATE = json.loads(
         Path(__file__).parents[2].joinpath("db/colorgrams.template.json").read_text()
@@ -16,7 +19,7 @@ def _overridable_template_paths() -> Dict[str, Any]:
     assert (
         len(COLORGRAMS_INDEX_TEMPLATE) > 0
     ), f"the index template 'db/colorgrams.template.json' must exist"
-    
+
     RAW_IMAGES_INDEX_TEMPLATE = json.loads(
         Path(__file__).parents[2].joinpath("db/raw-images.template.json").read_text()
     )
@@ -25,8 +28,8 @@ def _overridable_template_paths() -> Dict[str, Any]:
     ), f"the index template 'db/raw-images.template.json' must exist"
 
     return {
-        "colorgrams": COLORGRAMS_INDEX_TEMPLATE,
-        "raw-images": RAW_IMAGES_INDEX_TEMPLATE,
+        COLORGRAMS_INDEX_PATTERN: COLORGRAMS_INDEX_TEMPLATE,
+        RAW_IMAGES_INDEX_PATTERN: RAW_IMAGES_INDEX_TEMPLATE,
     }
 
 
@@ -113,10 +116,12 @@ def index_to_elasticsearch(
 
     try:
         elasticsearch_client.indices.put_template(
-            name=index, body=_overridable_template_paths[index]
+            name=index, body=_overridable_template_paths()[index]
         )
     except KeyError as e:
-        raise MissingTemplateError(f"no index template for {index}, please add one to db/{index}.template.json and update '_overridable_template_paths' in src/imgserve/elasticsearch.py") from e
+        raise MissingTemplateError(
+            f"no index template for {index}, please add one to db/{index}.template.json and update '_overridable_template_paths' in src/imgserve/elasticsearch.py"
+        ) from e
 
     elasticsearch.helpers.bulk(
         elasticsearch_client,

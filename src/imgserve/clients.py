@@ -90,7 +90,10 @@ def get_s3_args(
 
     return parser
 
-def get_experiment_args(parser: Optional[argparse.ArgumentParser] = None) -> argparse.ArgumentParser:
+
+def get_experiment_args(
+    parser: Optional[argparse.ArgumentParser] = None,
+) -> argparse.ArgumentParser:
 
     if parser is None:
         parser = argparse.ArgumentParser()
@@ -98,25 +101,22 @@ def get_experiment_args(parser: Optional[argparse.ArgumentParser] = None) -> arg
     experiment_parser = parser.add_argument_group("experiment")
 
     experiment_parser.add_argument(
-        "--trial-ids",
-        required=True,
-        nargs="+",
-        help="trial ids to gather images from",
+        "--trial-ids", required=True, nargs="+", help="trial ids to gather images from",
     )
     experiment_parser.add_argument(
         "--trial-hostname",
         default=socket.gethostname(),
-        help="hostname to use in metadata for images gathered by imgserve"
+        help="hostname to use in metadata for images gathered by imgserve",
     )
     experiment_parser.add_argument(
         "--run-trial",
         action="store_true",
-        help="run the experiment queries to the configured trial id"
+        help="run the experiment queries to the configured trial id",
     )
     experiment_parser.add_argument(
         "--max-images",
         default=100,
-        help="if --run-trial is set, number of images to collect"
+        help="if --run-trial is set, number of images to collect",
     )
     experiment_parser.add_argument(
         "--experiment-name",
@@ -162,18 +162,34 @@ def get_experiment_args(parser: Optional[argparse.ArgumentParser] = None) -> arg
 
     return parser
 
-def get_imgserve_args(parser: Optional[argparse.ArgumentParser] = None) -> argparse.ArgumentParser:
+
+def get_imgserve_args(
+    parser: Optional[argparse.ArgumentParser] = None,
+) -> argparse.ArgumentParser:
 
     if parser is None:
         parser = argparse.ArgumentParser()
 
     imgserve_parser = parser.add_argument_group("imgserve")
 
-    imgserve_parser.add_argument("--remote-url", default="https://compsyn.fourtheye.xyz", help="url to use for source of experiment data, set to 'localhost:8080' to use local instance of the imgserve app")
-    imgserve_parser.add_argument("--remote-username", required=False, help="username to use for authentication against remote imgserve")
-    imgserve_parser.add_argument("--remote-password", required=False, help="username to use for authentication against remote imgserve")
+    imgserve_parser.add_argument(
+        "--remote-url",
+        default="https://compsyn.fourtheye.xyz",
+        help="url to use for source of experiment data, set to 'localhost:8080' to use local instance of the imgserve app",
+    )
+    imgserve_parser.add_argument(
+        "--remote-username",
+        required=False,
+        help="username to use for authentication against remote imgserve",
+    )
+    imgserve_parser.add_argument(
+        "--remote-password",
+        required=False,
+        help="username to use for authentication against remote imgserve",
+    )
 
     return parser
+
 
 def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
     """ Prepare clients required for processing """
