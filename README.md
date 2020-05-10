@@ -4,47 +4,56 @@ The goal of this program is to help automate the process of image collection and
 
 ## requirements
 
-`poetry`: https://python-poetry.org/docs/
-`docker`: https://docs.docker.com/get-docker/
-`python3`: https://www.python.org/downloads/
+1. `python3`: https://www.python.org/downloads/
+2. `poetry`: https://python-poetry.org/docs/
+3. `docker`: https://docs.docker.com/get-docker/
 
 ## quickstart
 
-NOTE: quickstart will only work on Unix systems like Mac OS and Debian, but this code should run on any system that can satisfy the requirements.
+NOTE: quickstart will only work on Unix systems like Mac OS and Debian, but this code should run on any system that can satisfy the requirements listed above.
 
 1. satisfy requirements
 2. run `poetry run ./bin/init.py`
 3. run `source .env`
 
-NOTE: you must run `source .env` every time you come to this folder in a new shell, it sets up secret values in your command line environment.
+NOTE: you must run `source .env` every time you come to this folder in a new shell, it sets up secret values in your command line environment required for interacting with S3, Elasticsearch and the central imgserve server.
 
 to contribute results to a given <experiment_name>:
 
 ```
-./experiment.sh --trial-ids ${IMGSERVE_HOSTNAME} --experiment-name null-test --run-trial
+./experiment.sh \
+  --trial-ids ${IMGSERVE_HOSTNAME} \ 
+  --experiment-name null-test \
+  --run-trial
 ```
 
 to look at colorgrams for all trials run from this host:
 
 ```
-./experiment.sh --trial-ids ${IMGSERVE_HOSTNAME} --experiment-name null-test --dimensions query trial_timestamp
+./experiment.sh \
+  --trial-ids ${IMGSERVE_HOSTNAME} \
+  --experiment-name null-test \
+  --dimensions query trial_timestamp
 ```
 
 to look at colorgrams for all trials run from this host and any other host, tagging by `hostname` for richer colorgram annotation:
 
 ```
-./experiment.sh --trial-ids ${IMGSERVE_HOSTNAME} <other-host-trial-id-1> <other-host-trial-id-2> --experiment-name null-test --dimensions query trial_timestamp trial_id hostname
+./experiment.sh \
+  --trial-ids ${IMGSERVE_HOSTNAME} <other-host-trial-id-1> <other-host-trial-id-2> \
+  --experiment-name null-test \
+  --dimensions query trial_timestamp trial_id hostname
 ```
 
 These shell scripts are light wrappers around poetry calls, mostly to keep the number of arguments required to a minimum. They are meant to make the basic usage of this program very simple, but are not required.
 
 ## Experiment
 
-This program facilitates the execution of "experiments". Each "experiment" is logically oriented around a particular hypothesis, and has a unique `experiment_name` associated with it. Each `experiment_name` has 1 or more `trial_id` values associated with it. 
+This program facilitates the execution of "experiments". Each experiment is logically oriented around a particular hypothesis, and has a unique `experiment_name` associated with it. Each `experiment_name` has 1 or more `trial_id` values associated with it. 
 
-To do a time trial experiment, one would run the experiment code with the `--run-trial` flag every interval, holding the `--trial-ids` and `--experiment-name` values constant. Each run can be differentiated by the `trial_timestamp` field, which gets added automatically by the trial runner code.
+For example: to do a time trial experiment, one would run the experiment code with the `--run-trial` flag every interval, holding the `--trial-ids` and `--experiment-name` values constant. Each run can be differentiated by the `trial_timestamp` field, which gets added automatically by the trial runner code.
 
-To contribute to a global search experiment, one would run the experiment code with the provided `--experiment-name` and `--trial-ids` value. Host-specific metadata is automatically associated with the contributed results.
+For example: to contribute to a global search experiment, one would run the experiment code with the provided `--experiment-name` and `--trial-ids` value. Host-specific metadata is automatically associated with the contributed results.
 
 The queries to run for each experiment are stored in csv format. By default, this program fetches experiment csvs from the shared remote url, using configuration values from the `.env` file. If you would like to develop your own experiments locally, you can do so by adding the option `--remote-url http://localhost:8080` to your calls to `experiment.py`, this will serve csvs locally, but you must start the imgserve server first:
 

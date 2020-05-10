@@ -8,4 +8,3 @@ app/static/csv/experiments
 *.egg-info
 __pycache__
 jzazbz_array.npy
-dist
