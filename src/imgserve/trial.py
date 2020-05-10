@@ -93,7 +93,7 @@ def run_trial(
                 check=True,
             )
 
-        trial_run_manifest = local_data_store.joinpath(trial_id).joinpath(trial_hostname).joinpath(ran_at).joinpath("manifest.json").read_text()
+        trial_run_manifest = local_data_store.joinpath(trial_id).joinpath(trial_hostname).joinpath(trial_timestamp).joinpath("manifest.json").read_text()
         if not trial_run_manifest.is_file():
             raise FileNotFoundError(f"The trial run should have created a manifest file at {trial_run_manifest}, but it did not!")
         index_to_elasticsearch(

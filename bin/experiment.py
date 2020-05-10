@@ -32,6 +32,9 @@ def parse_args() -> argparse.Namespace:
 class AmbiguousTrialIDError(Exception):
     pass
 
+class MissingRequiredArgError(Exception):
+    pass
+
 
 def main(args: argparse.Namespace) -> None:
     """ image gathering trial and analysis of arbitrary trials"""
@@ -77,6 +80,9 @@ def main(args: argparse.Namespace) -> None:
 
         log.info(f"image gathering completed, to analyze results from this trial identifier drop the --run-trial flag")
         return 
+
+    if args.dimensions is None:
+        raise MissingRequiredArgError(f"You must pass --dimensions when running image analysis, refer to README for a description of what these do")
 
     log.info(f"assembling 'downloads' folder from data, splitting images by {args.dimensions}...")
     downloads: Path = assemble_downloads(

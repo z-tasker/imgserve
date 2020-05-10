@@ -131,7 +131,7 @@ def get_experiment_args(parser: Optional[argparse.ArgumentParser] = None) -> arg
     )
     experiment_parser.add_argument(
         "--dimensions",
-        required=True,
+        required=False,
         nargs="+",
         help="fields to split images by, a folder of images will be created for each combination of values across each field",
     )
