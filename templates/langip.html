@@ -7,7 +7,10 @@
  </header>
  <body>
   <div class="banner">
-    <a href="/">🔍</a>
+    <a href="/">🏠</a>
+    {% if raw_data_link %}
+    <a href="{{ raw_data_link }}" target="_blank">🗄️</a>
+    {% endif %}
   </div>
   {% for eng_ref in colorgrams %}
     <div class="gallery">

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import os
+import json
 import logging
 from collections import defaultdict
 from pathlib import Path
@@ -31,6 +32,14 @@ templates = Jinja2Templates(directory="templates")
 
 log = logging.getLogger()
 
+
+def get_raw_data_link(experiment: str) -> Optional[str]:
+    link = Path(f"static/dropbox-links/{experiment}")
+    if link.is_file():
+        return link.read_text()
+    else:
+        return None
+
 @app.route("/")
 async def search(request: Request):
     template = "home.html"
@@ -42,18 +51,18 @@ async def search(request: Request):
     }
     return templates.TemplateResponse(template, context)
 
-@app.route("/search")
-async def search(request: Request):
-    template = "search.html"
-    context = {
-        "request": request,
-        "experiments": [ p.name for p in Path("static/img/colorgrams").glob("*") ],
-        "x_values": ["query"],
-        "y_values": ["region"],
-        "z_values": ["time", "domain", "eng_ref"]
-    }
-
-    return templates.TemplateResponse(template, context)
+#@app.route("/search")
+#async def search(request: Request):
+#    template = "search.html"
+#    context = {
+#        "request": request,
+#        "experiments": [ p.name for p in Path("static/img/colorgrams").glob("*") ],
+#        "x_values": ["query", "region"],
+#        "y_values": ["region", "query"],
+#        "z_values": ["ran_at", "domain", "eng_ref"]
+#    }
+#
+#    return templates.TemplateResponse(template, context)
 
 @app.route("/tesselation")
 async def tesselation(request: Request):
@@ -81,20 +90,31 @@ async def tesselation(request: Request):
             elif tag_key == z:
                 pages[tag_key].add(tag_value)
 
-    def get_colorgram_with(x_value: str, y_value: str, z_value: str) -> str:
+    #print(x_values)
+    #print(y_values)
+    #print(pages.values())
+
+    def get_colorgram_with(x_value: str, y_value: str, z_value: str) -> Optional[str]:
+        x_ident = f"{x}={x_value}"
+        y_ident = f"{y}={y_value}"
+        z_ident = f"{z}={z_value}"
+        #print(x_ident, y_ident, z_ident)
         for colorgram_slug in all_colorgrams:
-            if f"{x}={x_value}" in colorgram_slug and f"{y}={y_value}" in colorgram_slug and f"{z}={z_value}" in colorgram_slug:
+            if x_ident in colorgram_slug and y_ident in colorgram_slug and z_ident in colorgram_slug:
                 return colorgram_slug
 
     colorgram_pages = dict()
-    for page_key in pages.keys():
+    for page_key in pages[z]:
         page = defaultdict(dict)
         for x_value in x_values:
             for y_value in y_values:
-                page[x_value][y_value] = get_colorgram_with(x_value=x_value, y_value=y_value, z_value=page_key)
+                colorgram = get_colorgram_with(x_value=x_value, y_value=y_value, z_value=page_key)
+                if colorgram is not None:
+                    page[x_value][y_value] = colorgram
         colorgram_pages[page_key] = page
 
 
+    #print(json.dumps(colorgram_pages,indent=2))
     context = {
         "experiment": experiment,
         "request": request,
@@ -174,7 +194,8 @@ async def generated(request: Request):
         "experiment": experiment,
         "request": request,
         "queries": queries,
-        "colorgrams": eng_ref_sorted
+        "colorgrams": eng_ref_sorted,
+        "raw_data_link": get_raw_data_link(experiment),
     }
     return templates.TemplateResponse(template, context)
 
@@ -196,7 +217,8 @@ async def generated(request: Request):
         "experiment": experiment,
         "request": request,
         "queries": queries,
-        "colorgrams": colorgrams
+        "colorgrams": colorgrams,
+        "raw_data_link": get_raw_data_link(experiment),
     }
     return templates.TemplateResponse(template, context)
 

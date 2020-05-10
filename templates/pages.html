@@ -7,7 +7,8 @@
  </header>
  <body>
   <div class="banner">
-    <a href="/">🔍</a>
+    <a href="/">🏠</a>
+    <a href="/search">🔍</a>
   </div>
   {% for page_key in colorgram_pages.keys() %}
     <div class="gallery">
@@ -15,11 +16,11 @@
         <div class="column">
           {{ x_value }}
   	<br>
-          {% for file_name, description in colorgrams[page_key][x_value].items() %}
+          {% for region, file_name in colorgram_pages[page_key][x_value].items() %}
           <div class="colorgram">
             <a>
                 <img src="static/img/colorgrams/{{ experiment }}/{{ file_name }}.png">
-  	      <p>{{ description }}</p>
+	<p>{{ x_value}} - {{ region }}</p>
   	  </a>
           </div>
           {% endfor %}
