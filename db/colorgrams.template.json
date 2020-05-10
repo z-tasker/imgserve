@@ -21,7 +21,7 @@
       "region" : {
         "type" : "keyword"
       },
-      "ran_at" : {
+      "trial_timestamp" : {
         "type" : "date"
       }
     }

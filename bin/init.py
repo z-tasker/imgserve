@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import shlex
+import subprocess
 from pathlib import Path
 
 from imgserve.logger import simple_logger
@@ -47,6 +49,14 @@ def interactive_init() -> None:
         )
     else:
         log.info("jzazbz_array.npy exists")
+
+    subprocess.run(
+        shlex.split("docker pull mgraskertheband/qloader:3.0.0"),
+        stdin=None,
+        stdout=None,
+        stderr=None,
+        check=True
+    )
 
     log.info(
         "init successful! Run `source .env` to prepare environment variables for quickstart scripts"
