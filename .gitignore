@@ -2,3 +2,10 @@
 git.sh
 static/img/colorgrams
 dropbox-links
+app/static/img/colorgrams
+app/static/csv/experiments
+*.swp
+*.egg-info
+__pycache__
+jzazbz_array.npy
+dist

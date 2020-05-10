@@ -1,0 +1,29 @@
+{
+  "index_patterns": ["colorgrams"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "properties" : {
+      "experiment_name": {
+        "type": "keyword"
+      },
+      "experiment_id" : {
+        "type" : "keyword"
+      },
+      "downloads" : {
+        "type" : "keyword"
+      },
+      "s3_key" : {
+        "type" : "keyword"
+      },
+      "region" : {
+        "type" : "keyword"
+      },
+      "ran_at" : {
+        "type" : "date"
+      }
+    }
+  }
+}
