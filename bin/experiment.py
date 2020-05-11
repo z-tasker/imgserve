@@ -2,7 +2,9 @@
 from __future__ import annotations
 import argparse
 import io
+import os
 import json
+import socket
 from pathlib import Path
 
 from imgserve import get_experiment_colorgrams_path, get_experiment_csv_path, STATIC
@@ -60,13 +62,18 @@ def main(args: argparse.Namespace) -> None:
     )
 
     if args.run_trial:
-        if len(args.trial_ids) > 1:
+        if args.trial_ids is None:
+            trial_id = "-".join([os.getenv("IMGSERVE_HOSTNAME", socket.gethostname()), args.experiment_name])
+        elif len(args.trial_ids) > 1:
             raise AmbiguousTrialIDError(
-                "when running a trial, please pass only one trial ID to --trial-ids, this is the id the new results will be associated with"
+                "when running a trial, please pass a maximum of one trial ID to --trial-ids, this is the id the new results will be associated with. Pass no --trial-ids for a sane default"
             )
+        else:
+            trial_id = args.trial_ids[0]
+
 
         log.info(
-            f"launching an image gathering trial, associating results with the identifier '{args.trial_ids[0]}'"
+            f"launching an image gathering trial, associating results with the identifier '{trial_id}'"
         )
 
         if args.prompt:
@@ -82,7 +89,7 @@ def main(args: argparse.Namespace) -> None:
             s3_endpoint_url=args.s3_endpoint_url,
             s3_region_name=args.s3_region_name,
             s3_bucket_name=args.s3_bucket,
-            trial_id=args.trial_ids[0],
+            trial_id=trial_id,
             trial_config=imgserve.get_experiment(args.experiment_name),
             trial_hostname=args.trial_hostname,
             experiment_name=args.experiment_name,

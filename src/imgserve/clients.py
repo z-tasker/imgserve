@@ -101,7 +101,7 @@ def get_experiment_args(
     experiment_parser = parser.add_argument_group("experiment")
 
     experiment_parser.add_argument(
-        "--trial-ids", required=True, nargs="+", help="trial ids to gather images from",
+        "--trial-ids", required=False, nargs="+", help="trial ids to gather images from",
     )
     experiment_parser.add_argument(
         "--trial-hostname",
