@@ -164,8 +164,10 @@ def assemble_downloads(
                         image_obj = s3_client.get_object(
                             Bucket=bucket_name, Key=str(image_path)
                         )
+                        archive_path.parent.mkdir(exist_ok=True, parents=True)
+                        archive_path.write_bytes(image_obj["Body"].read())
                         images_directory.joinpath(image_path.name).write_bytes(
-                            image_obj["Body"].read()
+                            archive_path.read_bytes()
                         )
                     pbar.update(1)
     logging.info(f"{total_images} image paths gathered")
