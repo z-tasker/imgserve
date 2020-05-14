@@ -28,15 +28,12 @@ class ImgServe:
             )
             if response.status_code != 200:
                 raise UnexpectedStatusCodeError(
-                    f"{response.status_code} from {self.remote_url}"
+                    f"{response.status_code} from {self.remote_url}: {response.text}"
                 )
             resp = json.loads(response.text)
         except requests.exceptions.ConnectionError as e:
             raise APIError(
                 f"connection to {self.remote_url} failed, is it running?"
             ) from e
-
-        if "error" in resp:
-            raise APIError(json.dumps(resp))
 
         return resp

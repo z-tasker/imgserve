@@ -203,10 +203,11 @@ async def experiment_csv(request: Request) -> Response:
                 name=experiment_name, local_data_store=LOCAL_DATA_STORE,
             )
         )
+        status_code = 200
     except FileNotFoundError as e:
         log.error(f"{experiment_name}: {e}")
+        status_code = 404
         response = {
-            "error": 404,
             "missing": experiment_name,
             "inventory": [
                 csv.stem
@@ -216,13 +217,13 @@ async def experiment_csv(request: Request) -> Response:
         }
     except KeyError as e:
         log.error(f"{experiment_name}: {e}")
+        status_code = 422
         response = {
-            "error": 422,
             "invalid": experiment_name,
             "message": f"{experiment_name}.csv was found, but is missing a required column: {e}",
         }
 
-    return JSONResponse(response)
+    return JSONResponse(response, status_code=status_code)
 
 
 @app.route("/{experiment}")
