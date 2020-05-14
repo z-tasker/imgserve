@@ -11,7 +11,7 @@ starlette = "^0.13.3"
 aiofiles = "^0.5.0"
 jinja2 = "^2.11.2"
 elasticsearch = "^7.6.0"
-compsyn = { file = "./dist/compsyn-0.2.1-py3-none-any.whl" }
+compsyn = { git = "https://github.com/comp-syn/comp-syn.git", branch = "master" }
 boto3 = "^1.13.5"
 elasticsearch_dsl = "^7.2.0"
 pytest = "^5.4.2"
