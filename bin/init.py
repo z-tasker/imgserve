@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from imgserve.logger import simple_logger
+from imgserve.trial import QUERY_RUNNER_IMAGE
 
 
 class MissingJZAZBZArrayError(Exception):
@@ -55,7 +56,7 @@ def interactive_init() -> None:
         log.info("jzazbz_array.npy exists")
 
     subprocess.run(
-        shlex.split("docker pull mgraskertheband/qloader:3.0.0"),
+        shlex.split(f"docker pull {QUERY_RUNNER_IMAGE}"),
         stdin=None,
         stdout=None,
         stderr=None,
