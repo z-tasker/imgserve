@@ -190,7 +190,12 @@ def get_imgserve_args(
         required=False,
         help="username to use for authentication against remote imgserve",
     )
-
+    imgserve_parser.add_argument(
+        "--batch-slice",
+        type=str,
+        default="1 of 1",
+        help="optionally slice experiment in multiple pieces for distributed running",
+    )
     return parser
 
 

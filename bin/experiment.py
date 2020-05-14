@@ -96,6 +96,7 @@ def main(args: argparse.Namespace) -> None:
             trial_id=trial_id,
             trial_config=imgserve.get_experiment(args.experiment_name),
             trial_hostname=args.trial_hostname,
+            batch_slice=args.batch_slice,
             experiment_name=args.experiment_name,
             local_data_store=args.local_data_store,
             dry_run=args.dry_run,

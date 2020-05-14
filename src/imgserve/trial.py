@@ -9,6 +9,7 @@ from pathlib import Path
 from .elasticsearch import index_to_elasticsearch, RAW_IMAGES_INDEX_PATTERN
 from .errors import UnimplementedError
 from .logger import simple_logger
+from .utils import get_batch_slice
 
 QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:3.0.0"
 
@@ -31,6 +32,7 @@ def run_trial(
     run_user_browser_scrape: bool = False,
     strict_config: bool = False,
     verbose: bool = False,
+    batch_slice: str = "1 of 1",
 ) -> None:
     """
         Light wrapper around github.com/mgrasker/qloader containerized search gatherer.
@@ -45,9 +47,18 @@ def run_trial(
         "experiment_name": experiment_name,
     }
 
+    trial_config_items = list(trial_config.items())
+    # optionally slice experiment into chunks and only run one
+    if batch_slice is not None:
+        trial_slice = get_batch_slice(items=trial_config_items, batch_slice=batch_slice)
+    else:
+        trial_slice = trial_config_items
+
+    log.info(f"running slice {batch_slice} of {experiment_name}")
+
     # for each search_term in csv, launch docker query
     # TODO: and optional user browser query, eventually
-    for search_term, csv_metadata in trial_config.items():
+    for search_term, csv_metadata in trial_slice:
         regions = csv_metadata.pop("regions")
 
         if strict_config and trial_hostname not in regions:
