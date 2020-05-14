@@ -12,6 +12,7 @@ log = simple_logger("imgserve.elasticsearch")
 COLORGRAMS_INDEX_PATTERN = "colorgrams"
 RAW_IMAGES_INDEX_PATTERN = "raw-images"
 
+
 def _overridable_template_paths() -> Dict[str, Any]:
     COLORGRAMS_INDEX_TEMPLATE = json.loads(
         Path(__file__).parents[2].joinpath("db/colorgrams.template.json").read_text()

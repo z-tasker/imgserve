@@ -104,7 +104,9 @@ def assemble_downloads(
         for field in dimensions
     }
     if len(field_values) == 0:
-        raise NoImagesInElasticsearchError(f"Could not find any field values for {RAW_IMAGES_INDEX_PATTERN} matching the filter: {shared_filter}. Is the data indexed properly?")
+        raise NoImagesInElasticsearchError(
+            f"Could not find any field values for {RAW_IMAGES_INDEX_PATTERN} matching the filter: {shared_filter}. Is the data indexed properly?"
+        )
     queries = [(slug, query) for (slug, query) in recursively_combine(field_values)]
     image_directories = defaultdict(list)
     for slug, query in queries:
@@ -130,7 +132,9 @@ def assemble_downloads(
             image_directories[slug].append(relative_image_path)
     total_images = sum([len(image_paths) for image_paths in image_directories.values()])
     if total_images == 0:
-        raise NoImagesInElasticsearchError(f"{json.dumps(queries, indent=2)}\n  0 images available for assembly from 'raw-images' according to the above query. Has this trial been indexed?")
+        raise NoImagesInElasticsearchError(
+            f"{json.dumps(queries, indent=2)}\n  0 images available for assembly from 'raw-images' according to the above query. Has this trial been indexed?"
+        )
     if not dry_run:
         if downloads_path.is_dir():
             existing_at_path = list(downloads_path.iterdir())

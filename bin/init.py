@@ -55,7 +55,7 @@ def interactive_init() -> None:
         stdin=None,
         stdout=None,
         stderr=None,
-        check=True
+        check=True,
     )
 
     log.info(

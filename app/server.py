@@ -45,6 +45,7 @@ def get_raw_data_link(experiment: str) -> Optional[str]:
     else:
         return None
 
+
 async def open_experiment_csv(csv_path: Path) -> Dict[str, Dict[str, Any]]:
     region_column = "region"
     query_terms_column = "search_term"
@@ -70,7 +71,6 @@ async def home(request: Request):
     experiments = [p.name for p in Path("static/img/colorgrams").glob("*")]
     context = {"request": request, "experiments": experiments}
     return templates.TemplateResponse(template, context)
-
 
 
 @app.route("/tesselation")
@@ -101,17 +101,21 @@ async def tesselation(request: Request):
             elif tag_key == z:
                 pages[tag_key].add(tag_value)
 
-    #print(x_values)
-    #print(y_values)
-    #print(pages.values())
+    # print(x_values)
+    # print(y_values)
+    # print(pages.values())
 
     def get_colorgram_with(x_value: str, y_value: str, z_value: str) -> Optional[str]:
         x_ident = f"{x}={x_value}"
         y_ident = f"{y}={y_value}"
         z_ident = f"{z}={z_value}"
-        #print(x_ident, y_ident, z_ident)
+        # print(x_ident, y_ident, z_ident)
         for colorgram_slug in all_colorgrams:
-            if x_ident in colorgram_slug and y_ident in colorgram_slug and z_ident in colorgram_slug:
+            if (
+                x_ident in colorgram_slug
+                and y_ident in colorgram_slug
+                and z_ident in colorgram_slug
+            ):
                 return colorgram_slug
 
     colorgram_pages = dict()
@@ -119,7 +123,9 @@ async def tesselation(request: Request):
         page = defaultdict(dict)
         for x_value in x_values:
             for y_value in y_values:
-                colorgram = get_colorgram_with(x_value=x_value, y_value=y_value, z_value=page_key)
+                colorgram = get_colorgram_with(
+                    x_value=x_value, y_value=y_value, z_value=page_key
+                )
                 if colorgram is not None:
                     page[x_value][y_value] = colorgram
         colorgram_pages[page_key] = page

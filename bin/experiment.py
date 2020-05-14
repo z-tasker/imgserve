@@ -63,14 +63,18 @@ def main(args: argparse.Namespace) -> None:
 
     if args.run_trial:
         if args.trial_ids is None:
-            trial_id = "-".join([os.getenv("IMGSERVE_HOSTNAME", socket.gethostname()), args.experiment_name])
+            trial_id = "-".join(
+                [
+                    os.getenv("IMGSERVE_HOSTNAME", socket.gethostname()),
+                    args.experiment_name,
+                ]
+            )
         elif len(args.trial_ids) > 1:
             raise AmbiguousTrialIDError(
                 "when running a trial, please pass a maximum of one trial ID to --trial-ids, this is the id the new results will be associated with. Pass no --trial-ids for a sane default"
             )
         else:
             trial_id = args.trial_ids[0]
-
 
         log.info(
             f"launching an image gathering trial, associating results with the identifier '{trial_id}'"
@@ -106,6 +110,12 @@ def main(args: argparse.Namespace) -> None:
         raise MissingRequiredArgError(
             f"You must pass --dimensions when running image analysis, refer to README for a description of what these do"
         )
+
+    if args.trial_ids is None:
+        raise Exception("Must pass trial ids explicitly until TODO completed")
+        # TODO: write this method
+        trial_ids = get_trial_ids(experiment_name=experiment_name)
+        # Check if trial_id in args.dimensions, warn results will mix if not
 
     log.info(
         f"assembling 'downloads' folder from data, splitting images by {args.dimensions}..."
@@ -145,10 +155,7 @@ def main(args: argparse.Namespace) -> None:
             overwrite=args.overwrite,
         )
         # save colorgram locally, regardless of overwrite
-        vector.colorgram.save(
-            colorgrams_path.joinpath(vector.word)
-            .with_suffix(".png")
-        )
+        vector.colorgram.save(colorgrams_path.joinpath(vector.word).with_suffix(".png"))
         # queue colorgram metadata for indexing to Elasticsearch
         metadata.update(experiment_name=args.experiment_name)
         colorgram_documents.append(metadata)
@@ -163,7 +170,9 @@ def main(args: argparse.Namespace) -> None:
         overwrite=args.overwrite,
     )
 
-    log.info(f"finished experiment analysis. Local colorgrams from this experiment: {colorgrams_path}")
+    log.info(
+        f"finished experiment analysis. Local colorgrams from this experiment: {colorgrams_path}"
+    )
 
 
 if __name__ == "__main__":

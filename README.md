@@ -52,7 +52,6 @@ These shell scripts are light wrappers around poetry calls, mostly to keep the n
 This program facilitates the execution of "experiments". Each experiment is logically oriented around a particular hypothesis, and has a unique `experiment_name` associated with it. Each `experiment_name` has 1 or more `trial_id` values associated with it. 
 
 For example: to do a time trial experiment, one would run the experiment code with the `--run-trial` flag every interval, holding the `--trial-ids` and `--experiment-name` values constant. Each run can be differentiated by the `trial_timestamp` field, which gets added automatically by the trial runner code.
-
 For example: to contribute to a global search experiment, one would run the experiment code with the provided `--experiment-name` and `--trial-ids` value. Host-specific metadata is automatically associated with the contributed results.
 
 The queries to run for each experiment are stored in csv format. By default, this program fetches experiment csvs from the shared remote url, using configuration values from the `.env` file. If you would like to develop your own experiments locally, you can do so by adding the option `--remote-url http://localhost:8080` to your calls to `experiment.py`, this will serve csvs locally, but you must start the imgserve server first:
