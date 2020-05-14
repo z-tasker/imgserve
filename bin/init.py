@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import nltk
 import shlex
 import subprocess
 from pathlib import Path
@@ -14,6 +15,9 @@ class MissingJZAZBZArrayError(Exception):
 class MissingRequiredEnvError(Exception):
     pass
 
+
+def _init_nltk() -> None:
+    nltk.download('wordnet')
 
 def interactive_init() -> None:
     env_file = Path(__file__).parents[1].joinpath(".env")
@@ -64,4 +68,5 @@ def interactive_init() -> None:
 
 
 if __name__ == "__main__":
+    _init_nltk()
     interactive_init()
