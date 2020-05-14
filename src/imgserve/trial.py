@@ -11,7 +11,7 @@ from .errors import UnimplementedError
 from .logger import simple_logger
 from .utils import get_batch_slice
 
-QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:3.0.0"
+QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:3.1.0"
 
 
 def run_trial(

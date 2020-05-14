@@ -97,8 +97,21 @@ def get_experiment_args(
 
     if parser is None:
         parser = argparse.ArgumentParser()
-
+        
     experiment_parser = parser.add_argument_group("experiment")
+
+    mode = experiment_parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
+        "--dimensions",
+        nargs="+",
+        help="Analysis mode: provide fields to split images by, a folder of images will be created for each combination of values across each field",
+    )
+    mode.add_argument(
+        "--run-trial",
+        action="store_true",
+        help="Trial mode: run the experiment queries to the (optionally) configured trial id",
+    )
+
 
     experiment_parser.add_argument(
         "--trial-ids",
@@ -110,11 +123,6 @@ def get_experiment_args(
         "--trial-hostname",
         default=socket.gethostname(),
         help="hostname to use in metadata for images gathered by imgserve",
-    )
-    experiment_parser.add_argument(
-        "--run-trial",
-        action="store_true",
-        help="run the experiment queries to the configured trial id",
     )
     experiment_parser.add_argument(
         "--max-images",
@@ -131,12 +139,6 @@ def get_experiment_args(
         type=Path,
         required=True,
         help="Path to directory to store data locally",
-    )
-    experiment_parser.add_argument(
-        "--dimensions",
-        required=False,
-        nargs="+",
-        help="fields to split images by, a folder of images will be created for each combination of values across each field",
     )
     experiment_parser.add_argument(
         "--dry-run",
