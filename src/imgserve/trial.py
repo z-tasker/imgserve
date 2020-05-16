@@ -87,6 +87,7 @@ def run_trial(
             subprocess.run(
                 shlex.split(
                     f'docker run \
+                        --user 1000:1000 \
                         --shm-size=2g \
                         -v {local_data_store}:/tmp/imgserve \
                         --env S3_ACCESS_KEY_ID={s3_access_key_id} \
