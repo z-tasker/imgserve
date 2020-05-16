@@ -12,7 +12,7 @@ from .errors import UnimplementedError
 from .logger import simple_logger
 from .utils import get_batch_slice
 
-QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:3.1.1"
+QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.0.0"
 
 
 def run_trial(
@@ -90,6 +90,7 @@ def run_trial(
                         --user 1000:1000 \
                         --shm-size=2g \
                         -v {local_data_store}:/tmp/imgserve \
+                        --env QLOADER_BROWSER=Chrome \
                         --env S3_ACCESS_KEY_ID={s3_access_key_id} \
                         --env S3_SECRET_ACCESS_KEY={s3_secret_access_key} \
                         --env S3_ENDPOINT_URL={s3_endpoint_url} \
