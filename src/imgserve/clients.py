@@ -214,9 +214,9 @@ def get_imgserve_args(
 
 def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
     """ Prepare clients required for processing """
-    assert (
-        args.elasticsearch_ca_certs.is_file()
-    ), f"{args.elasticsearch_ca_certs} not found!"
+    #assert (
+    #    args.elasticsearch_ca_certs.is_file()
+    #), f"{args.elasticsearch_ca_certs} not found!"
 
     elasticsearch_client = Elasticsearch(
         hosts=[
@@ -228,7 +228,7 @@ def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clien
         http_auth=(args.elasticsearch_username, args.elasticsearch_password),
         use_ssl=True,
         verify_certs=False,
-        ca_certs=args.elasticsearch_ca_certs,
+        #ca_certs=args.elasticsearch_ca_certs,
     )
     check_elasticsearch(elasticsearch_client, args.elasticsearch_client_fqdn, args.elasticsearch_client_port)
 
