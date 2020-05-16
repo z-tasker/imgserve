@@ -2,6 +2,7 @@ from __future__ import annotations
 import copy
 import json
 import shlex
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +27,7 @@ def run_trial(
     trial_hostname: str,
     experiment_name: str,
     local_data_store: Path,
+    no_local_data: bool = False,
     max_images: int = 100,
     dry_run: bool = False,
     endpoint: str = "google-images",
@@ -57,7 +59,7 @@ def run_trial(
     log.info(f"running slice {batch_slice} of {experiment_name}")
 
     # for each search_term in csv, launch docker query
-    # TODO: and optional user browser query, eventually
+    # TODO: optional "user browser" query
     for search_term, csv_metadata in trial_slice:
         regions = csv_metadata.pop("regions")
 
@@ -124,3 +126,5 @@ def run_trial(
             docs=json.loads(trial_run_manifest.read_text()),
             identity_fields=["trial_id", "trial_hostname", "ran_at"],
         )
+        if no_local_data:
+            shutil.rmtree(local_data_store.joinpath(trial_id).joinpath(trial_hostname).joinpath(trial_timestamp))

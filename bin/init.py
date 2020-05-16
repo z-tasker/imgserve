@@ -18,7 +18,8 @@ class MissingRequiredEnvError(Exception):
 
 
 def _init_nltk() -> None:
-    nltk.download('wordnet')
+    nltk.download("wordnet")
+
 
 def interactive_init() -> None:
     env_file = Path(__file__).parents[1].joinpath(".env")

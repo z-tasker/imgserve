@@ -7,6 +7,8 @@ from pathlib import Path
 import boto3
 from elasticsearch import Elasticsearch
 
+from .elasticsearch import check_elasticsearch
+
 
 def get_elasticsearch_args(
     parser: Optional[argparse.ArgumentParser] = None,
@@ -27,7 +29,7 @@ def get_elasticsearch_args(
     elasticsearch_parser.add_argument(
         "--elasticsearch-client-port",
         type=int,
-        default=os.getenv("ES_CLIENT_PORT", 9200),
+        default=os.getenv("ES_CLIENT_PORT"),
         help="Elasticsearch port",
     )
     elasticsearch_parser.add_argument(
@@ -97,7 +99,7 @@ def get_experiment_args(
 
     if parser is None:
         parser = argparse.ArgumentParser()
-        
+
     experiment_parser = parser.add_argument_group("experiment")
 
     mode = experiment_parser.add_mutually_exclusive_group(required=True)
@@ -111,7 +113,6 @@ def get_experiment_args(
         action="store_true",
         help="Trial mode: run the experiment queries to the (optionally) configured trial id",
     )
-
 
     experiment_parser.add_argument(
         "--trial-ids",
@@ -133,6 +134,11 @@ def get_experiment_args(
         "--experiment-name",
         required=True,
         help="Common name for the experiment this analysis supports",
+    )
+    experiment_parser.add_argument(
+        "--no-local-data",
+        action="store_true",
+        help="Clear image data gathered for each search after each search, useful for very large, long-term trial runs."
     )
     experiment_parser.add_argument(
         "--local-data-store",
@@ -216,9 +222,11 @@ def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clien
         ],
         http_auth=(args.elasticsearch_username, args.elasticsearch_password),
         use_ssl=True,
-        verify_certs=True,
+        verify_certs=False,
         ca_certs=args.elasticsearch_ca_certs,
     )
+    check_elasticsearch(elasticsearch_client, args.elasticsearch_client_fqdn, args.elasticsearch_client_port)
+
     s3_client = boto3.session.Session().client(
         "s3",
         region_name=args.s3_region_name,

@@ -12,6 +12,24 @@ log = simple_logger("imgserve.elasticsearch")
 COLORGRAMS_INDEX_PATTERN = "colorgrams"
 RAW_IMAGES_INDEX_PATTERN = "raw-images"
 
+class ElasticsearchUnreachableError(Exception):
+    pass
+
+class ElasticsearchNotReadyError(Exception):
+    pass
+
+
+def check_elasticsearch(elasticsearch_client: Elasticsearch, elasticsearch_fqdn: str, elasticsearch_port: str) -> None:
+    try:
+        health = elasticsearch_client.cluster.health()
+        log.info(f"cluster at {elasticsearch_fqdn}:{elasticsearch_port} is called '{health['cluster_name']}' and is {health['status']}.")
+        if health["status"] == "red":
+            raise ElasticsearchNotReadyError("cluster is red")
+    except elasticsearch.exceptions.ConnectionError as e:
+        raise ElasticsearchUnreachableError(
+            f"while attempting to connect to {elasticsearch_fqdn}:{elasticsearch_port}"
+        ) from e
+
 
 def _overridable_template_paths() -> Dict[str, Any]:
     COLORGRAMS_INDEX_TEMPLATE = json.loads(
