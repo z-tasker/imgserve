@@ -1,0 +1,14 @@
+{
+  "index_patterns": ["hosts"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "properties" : {
+      "ip": {"type": "ip"},
+      "hostname": {"type": "keyword"},
+      "region": {"type": "keyword"}
+    }
+  }
+}

@@ -16,6 +16,7 @@ boto3 = "^1.13.5"
 elasticsearch_dsl = "^7.2.0"
 pytest = "^5.4.2"
 python-rapidjson = "^0.9.1"
+requests = "^2.23.0"
 
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"

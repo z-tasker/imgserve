@@ -113,6 +113,11 @@ def get_experiment_args(
         action="store_true",
         help="Trial mode: run the experiment queries to the (optionally) configured trial id",
     )
+    mode.add_argument(
+        "--share-ip-address",
+        action="store_true",
+        help="Share IP address information of this host to Elasticsearch, to facilitate analysis of global search results"
+    )
 
     experiment_parser.add_argument(
         "--trial-ids",

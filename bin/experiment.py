@@ -7,6 +7,8 @@ import json
 import socket
 from pathlib import Path
 
+import requests
+
 from imgserve import get_experiment_colorgrams_path, get_experiment_csv_path, STATIC
 from imgserve.api import ImgServe
 from imgserve.assemble import assemble_downloads
@@ -46,6 +48,11 @@ class MissingRequiredArgError(Exception):
     pass
 
 
+def get_ipinfo() -> Generator[Dict[str, Any]]:
+    ipinfo = requests.get("https://ipinfo.io").json()
+
+    yield ipinfo
+
 def main(args: argparse.Namespace) -> None:
     """ image gathering trial and analysis of arbitrary trials"""
 
@@ -60,6 +67,17 @@ def main(args: argparse.Namespace) -> None:
         username=args.remote_username,
         password=args.remote_password,
     )
+
+    if args.share_ip_address:
+        index_to_elasticsearch(
+            elasticsearch_client,
+            index="hosts",
+            docs=get_ipinfo(),
+            identity_fields=["hostname", "ip"],
+            overwrite=False
+        )
+        log.info(f"shared ip address to Elasticsearch, thanks!")
+        return
 
     if args.run_trial:
         if args.trial_ids is None:
@@ -107,11 +125,6 @@ def main(args: argparse.Namespace) -> None:
             f"image gathering completed, to analyze results from this trial identifier drop the --run-trial flag"
         )
         return
-
-    if args.dimensions is None:
-        raise MissingRequiredArgError(
-            f"You must pass --dimensions when running image analysis, refer to README for a description of what these do"
-        )
 
     if args.trial_ids is None:
         raise Exception("Must pass trial ids explicitly until TODO completed")

@@ -18,6 +18,9 @@ class ElasticsearchUnreachableError(Exception):
 class ElasticsearchNotReadyError(Exception):
     pass
 
+class MissingTemplateError(Exception):
+    pass
+
 
 def check_elasticsearch(elasticsearch_client: Elasticsearch, elasticsearch_fqdn: str, elasticsearch_port: str) -> None:
     try:
@@ -32,24 +35,17 @@ def check_elasticsearch(elasticsearch_client: Elasticsearch, elasticsearch_fqdn:
 
 
 def _overridable_template_paths() -> Dict[str, Any]:
-    COLORGRAMS_INDEX_TEMPLATE = json.loads(
-        Path(__file__).parents[2].joinpath("db/colorgrams.template.json").read_text()
-    )
-    assert (
-        len(COLORGRAMS_INDEX_TEMPLATE) > 0
-    ), f"the index template 'db/colorgrams.template.json' must exist"
+    template_paths = dict()
+    for index in ["colorgrams", "raw-images", "hosts"]:
+        template = json.loads(
+            Path(__file__).parents[2].joinpath(f"db/{index}.template.json").read_text()
+        )
+        assert (
+            len(template) > 0
+        ), f"the index template 'db/{index}.template.json' must exist"
+        template_paths.update({index: template})
 
-    RAW_IMAGES_INDEX_TEMPLATE = json.loads(
-        Path(__file__).parents[2].joinpath("db/raw-images.template.json").read_text()
-    )
-    assert (
-        len(RAW_IMAGES_INDEX_TEMPLATE) > 0
-    ), f"the index template 'db/raw-images.template.json' must exist"
-
-    return {
-        COLORGRAMS_INDEX_PATTERN: COLORGRAMS_INDEX_TEMPLATE,
-        RAW_IMAGES_INDEX_PATTERN: RAW_IMAGES_INDEX_TEMPLATE,
-    }
+    return template_paths
 
 
 def document_exists(
