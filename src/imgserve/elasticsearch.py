@@ -127,16 +127,18 @@ def index_to_elasticsearch(
     docs: Iterator[Dict[str, Any]],
     identity_fields: List[str],
     overwrite: bool = False,
+    apply_template: bool = False,
 ) -> None:
 
-    try:
-        elasticsearch_client.indices.put_template(
-            name=index, body=_overridable_template_paths()[index]
-        )
-    except KeyError as e:
-        raise MissingTemplateError(
-            f"no index template for {index}, please add one to db/{index}.template.json and update '_overridable_template_paths' in src/imgserve/elasticsearch.py"
-        ) from e
+    if apply_template:
+        try:
+            elasticsearch_client.indices.put_template(
+                name=index, body=_overridable_template_paths()[index]
+            )
+        except KeyError as e:
+            raise MissingTemplateError(
+                f"no index template for {index}, please add one to db/{index}.template.json and update '_overridable_template_paths' in src/imgserve/elasticsearch.py"
+            ) from e
 
     elasticsearch.helpers.bulk(
         elasticsearch_client,
