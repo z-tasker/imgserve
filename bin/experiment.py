@@ -73,7 +73,7 @@ def main(args: argparse.Namespace) -> None:
             elasticsearch_client,
             index="hosts",
             docs=get_ipinfo(),
-            identity_fields=["hostname", "ip"],
+            identity_fields=None, # will always write a new document on this call
             overwrite=False
         )
         log.info(f"shared ip address to Elasticsearch, thanks!")

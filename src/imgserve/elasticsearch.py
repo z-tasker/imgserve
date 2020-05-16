@@ -98,16 +98,18 @@ def doc_gen(
     elasticsearch_client: Elasticsearch,
     docs: List[Dict[str, Any]],
     index: str,
-    identity_fields: List[str],
+    identity_fields: Optional[List[str]],
     overwrite: bool,
 ) -> Generator[Dict[str, Any], None, None]:
 
-    elasticsearch_client.indices.refresh(index=index, ignore_unavailable=True)
+    if identity_fields is not None:
+        # must have manage permission on index to refresh, this is only necessary for idempotent indexing calls
+        elasticsearch_client.indices.refresh(index=index, ignore_unavailable=True)
 
     yielded = 0
     exists = 0
     for doc in docs:
-        if document_exists(
+        if identity_fields is not None and document_exists(
             elasticsearch_client, doc, index, identity_fields, overwrite
         ):
             exists += 1
@@ -125,7 +127,7 @@ def index_to_elasticsearch(
     elasticsearch_client: Elasticsearch,
     index: str,
     docs: Iterator[Dict[str, Any]],
-    identity_fields: List[str],
+    identity_fields: Optional[List[str]] = None,
     overwrite: bool = False,
     apply_template: bool = False,
 ) -> None:
