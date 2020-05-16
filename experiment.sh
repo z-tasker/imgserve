@@ -2,7 +2,6 @@ poetry run ./bin/experiment.py \
   --elasticsearch-client-fqdn "${ES_CLIENT_FQDN}" \
   --elasticsearch-username "${ES_USERNAME}" \
   --elasticsearch-password "${ES_PASSWORD}" \
-  --elasticsearch-ca-certs "${ES_CA_CERTS}" \
   --remote-username "${IMGSERVE_REMOTE_USERNAME}" \
   --remote-password "${IMGSERVE_REMOTE_PASSWORD}" \
   --s3-bucket "${AWS_BUCKET_NAME}" \

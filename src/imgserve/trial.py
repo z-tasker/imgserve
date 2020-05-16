@@ -127,4 +127,8 @@ def run_trial(
             identity_fields=["trial_id", "trial_hostname", "ran_at"],
         )
         if no_local_data:
-            shutil.rmtree(local_data_store.joinpath(trial_id).joinpath(trial_hostname).joinpath(trial_timestamp))
+            shutil.rmtree(
+                local_data_store.joinpath(trial_id)
+                .joinpath(trial_hostname)
+                .joinpath(trial_timestamp)
+            )

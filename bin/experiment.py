@@ -53,6 +53,7 @@ def get_ipinfo() -> Generator[Dict[str, Any]]:
 
     yield ipinfo
 
+
 def main(args: argparse.Namespace) -> None:
     """ image gathering trial and analysis of arbitrary trials"""
 
@@ -73,8 +74,8 @@ def main(args: argparse.Namespace) -> None:
             elasticsearch_client,
             index="hosts",
             docs=get_ipinfo(),
-            identity_fields=None, # will always write a new document on this call
-            overwrite=False
+            identity_fields=None,  # will always write a new document on this call
+            overwrite=False,
         )
         log.info(f"shared ip address to Elasticsearch, thanks!")
         return

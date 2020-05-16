@@ -12,20 +12,29 @@ log = simple_logger("imgserve.elasticsearch")
 COLORGRAMS_INDEX_PATTERN = "colorgrams"
 RAW_IMAGES_INDEX_PATTERN = "raw-images"
 
+
 class ElasticsearchUnreachableError(Exception):
     pass
 
+
 class ElasticsearchNotReadyError(Exception):
     pass
+
 
 class MissingTemplateError(Exception):
     pass
 
 
-def check_elasticsearch(elasticsearch_client: Elasticsearch, elasticsearch_fqdn: str, elasticsearch_port: str) -> None:
+def check_elasticsearch(
+    elasticsearch_client: Elasticsearch,
+    elasticsearch_fqdn: str,
+    elasticsearch_port: str,
+) -> None:
     try:
         health = elasticsearch_client.cluster.health()
-        log.info(f"cluster at {elasticsearch_fqdn}:{elasticsearch_port} is called '{health['cluster_name']}' and is {health['status']}.")
+        log.info(
+            f"cluster at {elasticsearch_fqdn}:{elasticsearch_port} is called '{health['cluster_name']}' and is {health['status']}."
+        )
         if health["status"] == "red":
             raise ElasticsearchNotReadyError("cluster is red")
     except elasticsearch.exceptions.ConnectionError as e:

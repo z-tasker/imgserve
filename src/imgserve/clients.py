@@ -50,8 +50,8 @@ def get_elasticsearch_args(
         "--elasticsearch-ca-certs",
         type=Path,
         default=os.getenv("ES_CA_CERTS", None),
-        required=True,
-        help="Path to Elasticsearch CA",
+        required=False,
+        help="Path to custom Elasticsearch CA. If Elasticsearch is behind a well used CA, this is not required. If Elasticsearch is behind self-signed certs, it is.",
     )
 
     return parser
@@ -116,7 +116,7 @@ def get_experiment_args(
     mode.add_argument(
         "--share-ip-address",
         action="store_true",
-        help="Share IP address information of this host to Elasticsearch, to facilitate analysis of global search results"
+        help="Share IP address information of this host to Elasticsearch, to facilitate analysis of global search results",
     )
 
     experiment_parser.add_argument(
@@ -143,7 +143,7 @@ def get_experiment_args(
     experiment_parser.add_argument(
         "--no-local-data",
         action="store_true",
-        help="Clear image data gathered for each search after each search, useful for very large, long-term trial runs."
+        help="Clear image data gathered for each search after each search, useful for very large, long-term trial runs.",
     )
     experiment_parser.add_argument(
         "--local-data-store",
@@ -214,9 +214,10 @@ def get_imgserve_args(
 
 def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
     """ Prepare clients required for processing """
-    #assert (
-    #    args.elasticsearch_ca_certs.is_file()
-    #), f"{args.elasticsearch_ca_certs} not found!"
+    if args.elasticsearch_ca_certs is not None:
+        assert (
+            args.elasticsearch_ca_certs.is_file()
+        ), f"{args.elasticsearch_ca_certs} not found!"
 
     elasticsearch_client = Elasticsearch(
         hosts=[
@@ -227,10 +228,14 @@ def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clien
         ],
         http_auth=(args.elasticsearch_username, args.elasticsearch_password),
         use_ssl=True,
-        verify_certs=False,
-        #ca_certs=args.elasticsearch_ca_certs,
+        verify_certs=True,
+        ca_certs=args.elasticsearch_ca_certs,
     )
-    check_elasticsearch(elasticsearch_client, args.elasticsearch_client_fqdn, args.elasticsearch_client_port)
+    check_elasticsearch(
+        elasticsearch_client,
+        args.elasticsearch_client_fqdn,
+        args.elasticsearch_client_port,
+    )
 
     s3_client = boto3.session.Session().client(
         "s3",
