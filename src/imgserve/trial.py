@@ -154,8 +154,9 @@ def run_trial(
             identity_fields=["trial_id", "trial_hostname", "ran_at"],
         )
         if not skip_vectors:
+            vector_stem = f"query={search_term}|hostname={trial_hostname}|trial_timestamp={trial_timestamp}"
             trial_downloads = query_downloads.joinpath("vector").joinpath(
-                f"query={search_term}|hostname={trial_hostname}|trial_timestamp={trial_timestamp}"
+                vector_stem 
             )
             trial_downloads.mkdir(parents=True)
             for downloaded_image in query_downloads.joinpath("images").glob("*.jpg"):
@@ -174,7 +175,9 @@ def run_trial(
                 metadata.update(experiment_name=experiment_name)
                 documents.append(metadata)
                 if not no_local_data:
-                    vector.colorgram.save(trial_downloads.with_suffix(".png"))
+                    save_to = trial_downloads.parent.joinpath("colorgrams").joinpath(vector_stem).with_suffix(".png")
+                    save_to.parent.mkdir(exist_ok=True, parents=True)
+                    vector.colorgram.save(save_to)
             if len(documents) > 1:
                 log.warning(f"multiple vectors created from a single search run")
             index_to_elasticsearch(
