@@ -12,13 +12,16 @@ from retry import retry
 from .elasticsearch import (
     document_exists,
     index_to_elasticsearch,
+    COLORGRAMS_INDEX_PATTERN,
     RAW_IMAGES_INDEX_PATTERN,
 )
 from .errors import UnimplementedError
 from .logger import simple_logger
+from .s3 import s3_put_image
 from .utils import get_batch_slice
+from .vectors import get_vectors
 
-QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.0.0"
+QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.1.0"
 
 
 @retry(tries=10, backoff=5)
@@ -35,6 +38,7 @@ def run_trial(
     local_data_store: Path,
     s3_access_key_id: str,
     s3_bucket_name: str,
+    s3_client: botocore.clients.s3,
     s3_endpoint_url: str,
     s3_region_name: str,
     s3_secret_access_key: str,
@@ -48,6 +52,7 @@ def run_trial(
     no_local_data: bool = False,
     run_user_browser_scrape: bool = False,
     skip_already_searched: bool = False,
+    skip_vectors: bool = False,
 ) -> None:
     """
         Light wrapper around github.com/mgrasker/qloader containerized search gatherer.
@@ -66,9 +71,9 @@ def run_trial(
     # optionally slice experiment into chunks and only run one
     if batch_slice is not None:
         trial_slice = get_batch_slice(items=trial_config_items, batch_slice=batch_slice)
+        log.info(f"running slice {batch_slice} of {experiment_name}")
     else:
         trial_slice = trial_config_items
-        log.info(f"running slice {batch_slice} of {experiment_name}")
 
     # for each search_term in csv, launch docker query
     # TODO: optional "user browser" query
@@ -104,7 +109,7 @@ def run_trial(
         if run_user_browser_scrape:
             raise UnimplementedError()
         else:
-            log.info(f"running image gathering container for query: {search_term}")
+            log.info(f"running {QUERY_RUNNER_IMAGE} for query: {search_term}")
             docker_run_command = f'docker run \
                 --user 1000:1000 \
                 --shm-size=2g \
@@ -126,7 +131,13 @@ def run_trial(
                     --metadata-path /tmp/imgserve/{trial_id}/.metadata-{trial_timestamp}.json'
             run_search(docker_run_command)
 
-        trial_run_manifest = (
+        query_downloads = (
+            local_data_store.joinpath(trial_id)
+            .joinpath(trial_hostname)
+            .joinpath(trial_timestamp)
+        )
+        trial_run_manifest = query_downloads.joinpath("manifest.json")
+        (
             local_data_store.joinpath(trial_id)
             .joinpath(trial_hostname)
             .joinpath(trial_timestamp)
@@ -142,10 +153,44 @@ def run_trial(
             docs=json.loads(trial_run_manifest.read_text()),
             identity_fields=["trial_id", "trial_hostname", "ran_at"],
         )
-        if no_local_data:
-            shutil.rmtree(
-                local_data_store.joinpath(trial_id)
-                .joinpath(trial_hostname)
-                .joinpath(trial_timestamp)
+        if not skip_vectors:
+            trial_downloads = query_downloads.joinpath("vector").joinpath(
+                f"query={search_term}|hostname={trial_hostname}|trial_timestamp={trial_timestamp}"
             )
-            log.info("removed trial data from local storage")
+            trial_downloads.mkdir(parents=True)
+            for downloaded_image in query_downloads.joinpath("images").glob("*.jpg"):
+                trial_downloads.joinpath(downloaded_image.name).write_bytes(
+                    downloaded_image.read_bytes()
+                )
+            documents = list()
+            for vector, metadata in get_vectors(trial_downloads.parent):
+                s3_put_image(
+                    s3_client=s3_client,
+                    image=vector.colorgram,
+                    bucket=s3_bucket_name,
+                    object_path=Path(experiment_name).joinpath(metadata["s3_key"]),
+                    overwrite=True,
+                )
+                metadata.update(experiment_name=experiment_name)
+                documents.append(metadata)
+                if not no_local_data:
+                    vector.colorgram.save(trial_downloads.with_suffix(".png"))
+            if len(documents) > 1:
+                log.warning(f"multiple vectors created from a single search run")
+            index_to_elasticsearch(
+                elasticsearch_client=elasticsearch_client,
+                index=COLORGRAMS_INDEX_PATTERN,
+                docs=documents,
+                identity_fields=["experiment_name", "downloads", "s3_key"],
+                overwrite=False,
+            )
+            log.info(
+                f"vector for '{search_term}' indexed and saved to s3"
+                + f", and also here: {trial_downloads.with_suffix('.png')}"
+                if not no_local_data
+                else ""
+            )
+
+        if no_local_data:
+            shutil.rmtree(query_downloads)
+            log.info("removed '{search_term}' data from local storage")

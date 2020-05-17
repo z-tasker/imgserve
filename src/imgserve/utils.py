@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-
-class InvalidSliceArgumentError(Exception):
-    pass
+from .errors import InvalidSliceArgumentError
 
 
 def get_batch_slice(items: List[Any], batch_slice: str) -> List[Any]:

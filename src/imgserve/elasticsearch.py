@@ -5,6 +5,7 @@ from pathlib import Path
 import elasticsearch
 from retry import retry
 
+from .errors import ElasticsearchUnreachableError, ElasticsearchNotReadyError, MissingTemplateError
 from .logger import simple_logger
 
 log = simple_logger("imgserve.elasticsearch")
@@ -12,18 +13,6 @@ log = simple_logger("imgserve.elasticsearch")
 
 COLORGRAMS_INDEX_PATTERN = "colorgrams"
 RAW_IMAGES_INDEX_PATTERN = "raw-images"
-
-
-class ElasticsearchUnreachableError(Exception):
-    pass
-
-
-class ElasticsearchNotReadyError(Exception):
-    pass
-
-
-class MissingTemplateError(Exception):
-    pass
 
 
 def check_elasticsearch(

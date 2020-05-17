@@ -12,19 +12,19 @@ import requests
 from imgserve import get_experiment_colorgrams_path, get_experiment_csv_path, STATIC
 from imgserve.api import ImgServe
 from imgserve.assemble import assemble_downloads
-from imgserve.clients import (
+from imgserve.args import (
     get_elasticsearch_args,
     get_experiment_args,
     get_imgserve_args,
     get_s3_args,
-    get_clients,
 )
+from imgserve.clients import get_clients
 from imgserve.elasticsearch import index_to_elasticsearch, COLORGRAMS_INDEX_PATTERN
 from imgserve.logger import simple_logger
 from imgserve.s3 import s3_put_image
 from imgserve.trial import run_trial
+from imgserve.vectors import get_vectors
 
-from vectors import get_vectors
 
 BUCKET_NAME = "imgserve"
 
@@ -54,6 +54,13 @@ def get_ipinfo() -> Generator[Dict[str, Any]]:
     yield ipinfo
 
 
+def default_trial_id(
+    experiment_name: str,
+    hostname: str = os.getenv("IMGSERVE_HOSTNAME", socket.gethostname()),
+) -> str:
+    return "-".join([hostname, experiment_name])
+
+
 def main(args: argparse.Namespace) -> None:
     """ image gathering trial and analysis of arbitrary trials"""
 
@@ -80,15 +87,11 @@ def main(args: argparse.Namespace) -> None:
         log.info(f"shared ip address to Elasticsearch, thanks!")
         return
 
+    if args.trial_ids is None:
+        args.trial_ids = [default_trial_id(args.experiment_name)]
+
     if args.run_trial:
-        if args.trial_ids is None:
-            trial_id = "-".join(
-                [
-                    os.getenv("IMGSERVE_HOSTNAME", socket.gethostname()),
-                    args.experiment_name,
-                ]
-            )
-        elif len(args.trial_ids) > 1:
+        if len(args.trial_ids) > 1:
             raise AmbiguousTrialIDError(
                 "when running a trial, please pass a maximum of one trial ID to --trial-ids, this is the id the new results will be associated with. Pass no --trial-ids for a sane default"
             )
@@ -110,6 +113,7 @@ def main(args: argparse.Namespace) -> None:
             local_data_store=args.local_data_store,
             s3_access_key_id=args.s3_access_key_id,
             s3_bucket_name=args.s3_bucket,
+            s3_client=s3_client,
             s3_endpoint_url=args.s3_endpoint_url,
             s3_region_name=args.s3_region_name,
             s3_secret_access_key=args.s3_secret_access_key,
@@ -122,11 +126,10 @@ def main(args: argparse.Namespace) -> None:
             no_local_data=args.no_local_data,
             run_user_browser_scrape=args.run_user_browser_scrape,
             skip_already_searched=args.skip_already_searched,
+            skip_vectors=args.skip_vectors,
         )
 
-        log.info(
-            f"image gathering completed, to analyze results from this trial identifier drop the --run-trial flag"
-        )
+        log.info(f"image gathering completed")
         return
 
     if args.trial_ids is None:
