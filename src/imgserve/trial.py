@@ -65,8 +65,7 @@ def run_trial(
         trial_slice = get_batch_slice(items=trial_config_items, batch_slice=batch_slice)
     else:
         trial_slice = trial_config_items
-
-    log.info(f"running slice {batch_slice} of {experiment_name}")
+        log.info(f"running slice {batch_slice} of {experiment_name}")
 
     # for each search_term in csv, launch docker query
     # TODO: optional "user browser" query

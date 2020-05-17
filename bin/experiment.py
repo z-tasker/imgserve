@@ -57,7 +57,7 @@ def get_ipinfo() -> Generator[Dict[str, Any]]:
 def main(args: argparse.Namespace) -> None:
     """ image gathering trial and analysis of arbitrary trials"""
 
-    log = simple_logger(f"experiment")
+    log = simple_logger("imgserve.experiment")
 
     log.info(f"starting {args.experiment_name}...")
 
