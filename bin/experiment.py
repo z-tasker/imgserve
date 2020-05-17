@@ -106,20 +106,22 @@ def main(args: argparse.Namespace) -> None:
 
         run_trial(
             elasticsearch_client=elasticsearch_client,
-            max_images=args.max_images,
+            experiment_name=args.experiment_name,
+            local_data_store=args.local_data_store,
             s3_access_key_id=args.s3_access_key_id,
-            s3_secret_access_key=args.s3_secret_access_key,
+            s3_bucket_name=args.s3_bucket,
             s3_endpoint_url=args.s3_endpoint_url,
             s3_region_name=args.s3_region_name,
-            s3_bucket_name=args.s3_bucket,
-            trial_id=trial_id,
+            s3_secret_access_key=args.s3_secret_access_key,
             trial_config=imgserve.get_experiment(args.experiment_name),
             trial_hostname=args.trial_hostname,
+            trial_id=trial_id,
             batch_slice=args.batch_slice,
-            experiment_name=args.experiment_name,
-            no_local_data=args.no_local_data,
-            local_data_store=args.local_data_store,
             dry_run=args.dry_run,
+            max_images=args.max_images,
+            no_local_data=args.no_local_data,
+            run_user_browser_scrape=args.run_user_browser_scrape,
+            skip_already_searched=args.skip_already_searched,
         )
 
         log.info(

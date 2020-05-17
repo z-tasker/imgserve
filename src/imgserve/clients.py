@@ -152,6 +152,16 @@ def get_experiment_args(
         help="Path to directory to store data locally",
     )
     experiment_parser.add_argument(
+        "--skip-already-searched",
+        action="store_true",
+        help="don't search terms this host has already run for the trial_id",
+    )
+    experiment_parser.add_argument(
+        "--run-user-browser-scrape",
+        action="store_true",
+        help="use the python environment's selenium driver, instead of the safer qloader container",
+    )
+    experiment_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Take no action, but show what would happen",

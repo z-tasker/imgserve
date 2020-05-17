@@ -9,7 +9,11 @@ from pathlib import Path
 
 from retry import retry
 
-from .elasticsearch import index_to_elasticsearch, RAW_IMAGES_INDEX_PATTERN
+from .elasticsearch import (
+    document_exists,
+    index_to_elasticsearch,
+    RAW_IMAGES_INDEX_PATTERN,
+)
 from .errors import UnimplementedError
 from .logger import simple_logger
 from .utils import get_batch_slice
@@ -27,24 +31,23 @@ def run_search(docker_run_command: str) -> None:
 
 def run_trial(
     elasticsearch_client: Elasticsearch,
-    s3_access_key_id: str,
-    s3_secret_access_key: str,
-    s3_endpoint_url: str,
-    s3_region_name: str,
-    s3_bucket_name: str,
-    trial_id: str,
-    trial_config: Dict[str, Any],
-    trial_hostname: str,
     experiment_name: str,
     local_data_store: Path,
-    no_local_data: bool = False,
-    max_images: int = 100,
+    s3_access_key_id: str,
+    s3_bucket_name: str,
+    s3_endpoint_url: str,
+    s3_region_name: str,
+    s3_secret_access_key: str,
+    trial_config: Dict[str, Any],
+    trial_hostname: str,
+    trial_id: str,
+    batch_slice: Optional[str] = None,
     dry_run: bool = False,
     endpoint: str = "google-images",
+    max_images: int = 100,
+    no_local_data: bool = False,
     run_user_browser_scrape: bool = False,
-    strict_config: bool = False,
-    verbose: bool = False,
-    batch_slice: Optional[str] = None,
+    skip_already_searched: bool = False,
 ) -> None:
     """
         Light wrapper around github.com/mgrasker/qloader containerized search gatherer.
@@ -70,15 +73,24 @@ def run_trial(
     # for each search_term in csv, launch docker query
     # TODO: optional "user browser" query
     for search_term, csv_metadata in trial_slice:
+
+        if skip_already_searched and document_exists(
+            elasticsearch_client=elasticsearch_client,
+            doc={
+                "hostname": trial_hostname,
+                "query": search_term,
+                "trial_id": trial_id,
+            },
+            index="raw-images",
+            identity_fields=["hostname", "query", "trial_id"],
+        ):
+            log.info(f"already searched {search_term} from this host for {trial_id}")
+            continue
+
         regions = csv_metadata.pop("regions")
 
-        if strict_config and trial_hostname not in regions:
-            log.info(
-                f"{trial_hostname} does not appear in the configured regions for the query {search_term}, skipping"
-            )
-            continue
         if dry_run:
-            log.info(f"would run search {search_term}, but --dry-run is set")
+            log.info(f"[DRY RUN] would run search {search_term}")
             continue
 
         image_document_shared = copy.deepcopy(shared_metadata)

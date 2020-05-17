@@ -58,12 +58,13 @@ def _overridable_template_paths() -> Dict[str, Any]:
     return template_paths
 
 
+@retry(tries=3, backoff=5, delay=2)
 def document_exists(
     elasticsearch_client: Elasticsearch,
     doc: Dict[str, Any],
     index: str,
     identity_fields: List[str],
-    overwrite: bool,
+    overwrite: bool = False,
 ) -> bool:
 
     query_filters = list()
@@ -89,12 +90,10 @@ def document_exists(
     if len(hits) > 0:
         if overwrite:
             if len(hits) > 1:
-                log.warning(
-                    f"{len(hits)} colorgram documents matched the query: {body}"
-                )
+                log.warning(f"{len(hits)} {index} documents matched the query: {body}")
             for hit in hits:
                 log.info(
-                    f"deleting existing colorgram document matching query (id: {hit['_id']})"
+                    f"deleting existing {index} document matching query (id: {hit['_id']})"
                 )
                 elasticsearch_client.delete(index=index, id=hit["_id"])
                 return False
