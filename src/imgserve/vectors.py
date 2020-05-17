@@ -25,6 +25,7 @@ def array_to_list(array: numpy.ndarray) -> List[float]:
             out.append(elem)
     return out
 
+
 def get_vectors(
     downloads_path: Path,
 ) -> Generator[Tuple[Vector, Dict[str, Any]], None, None]:

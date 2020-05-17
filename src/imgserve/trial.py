@@ -155,9 +155,7 @@ def run_trial(
         )
         if not skip_vectors:
             vector_stem = f"query={search_term}|hostname={trial_hostname}|trial_timestamp={trial_timestamp}"
-            trial_downloads = query_downloads.joinpath("vector").joinpath(
-                vector_stem 
-            )
+            trial_downloads = query_downloads.joinpath("vector").joinpath(vector_stem)
             trial_downloads.mkdir(parents=True)
             for downloaded_image in query_downloads.joinpath("images").glob("*.jpg"):
                 trial_downloads.joinpath(downloaded_image.name).write_bytes(
@@ -175,7 +173,11 @@ def run_trial(
                 metadata.update(experiment_name=experiment_name)
                 documents.append(metadata)
                 if not no_local_data:
-                    save_to = trial_downloads.parent.joinpath("colorgrams").joinpath(vector_stem).with_suffix(".png")
+                    save_to = (
+                        trial_downloads.parent.joinpath("colorgrams")
+                        .joinpath(vector_stem)
+                        .with_suffix(".png")
+                    )
                     save_to.parent.mkdir(exist_ok=True, parents=True)
                     vector.colorgram.save(save_to)
             if len(documents) > 1:
@@ -189,11 +191,13 @@ def run_trial(
             )
             log.info(
                 f"vector for '{search_term}' indexed and saved to s3"
-                + f", and also here: {trial_downloads.with_suffix('.png')}"
-                if not no_local_data
-                else ""
+                + (
+                    f", and also here: {trial_downloads.with_suffix('.png')}"
+                    if not no_local_data
+                    else ""
+                )
             )
 
         if no_local_data:
             shutil.rmtree(query_downloads)
-            log.info("removed '{search_term}' data from local storage")
+            log.info(f"removed '{search_term}' data from local storage")
