@@ -193,6 +193,14 @@ six = "*"
 
 [[package]]
 category = "main"
+description = "Decorators for Humans"
+name = "decorator"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*"
+version = "4.4.2"
+
+[[package]]
+category = "main"
 description = "Docutils -- Python Documentation Utilities"
 name = "docutils"
 optional = false
@@ -694,6 +702,18 @@ socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7)", "win-inet-pton"]
 
 [[package]]
 category = "main"
+description = "Easy to use retry decorator."
+name = "retry"
+optional = false
+python-versions = "*"
+version = "0.9.2"
+
+[package.dependencies]
+decorator = ">=3.4.2"
+py = ">=1.4.26,<2.0.0"
+
+[[package]]
+category = "main"
 description = "Pure-Python RSA implementation"
 name = "rsa"
 optional = false
@@ -910,7 +930,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "ebf25c110237f980643fceda18070a818de819c981a938a02bfbb21e8da48815"
+content-hash = "13a32f5628df7e546ec643ec17ea982ed88deca1fd46ff87c4b24b0afb2aad18"
 python-versions = "^3.7"
 
 [metadata.files]
@@ -973,6 +993,10 @@ compsyn = []
 cycler = [
     {file = "cycler-0.10.0-py2.py3-none-any.whl", hash = "sha256:1d8a5ae1ff6c5cf9b93e8811e581232ad8920aeec647c37316ceac982b08cb2d"},
     {file = "cycler-0.10.0.tar.gz", hash = "sha256:cd7b2d1018258d7247a71425e9f26463dfb444d411c39569972f4ce586b0c9d8"},
+]
+decorator = [
+    {file = "decorator-4.4.2-py2.py3-none-any.whl", hash = "sha256:41fa54c2a0cc4ba648be4fd43cff00aedf5b9465c9bf18d64325bc225f08f760"},
+    {file = "decorator-4.4.2.tar.gz", hash = "sha256:e3a62f0520172440ca0dcc823749319382e377f37f140a0b99ef45fecb84bfe7"},
 ]
 docutils = [
     {file = "docutils-0.15.2-py2-none-any.whl", hash = "sha256:9e4d7ecfc600058e07ba661411a2b7de2fd0fafa17d1a7f7361cd47b1175c827"},
@@ -1401,6 +1425,10 @@ regex = [
 requests = [
     {file = "requests-2.23.0-py2.py3-none-any.whl", hash = "sha256:43999036bfa82904b6af1d99e4882b560e5e2c68e5c4b0aa03b655f3d7d73fee"},
     {file = "requests-2.23.0.tar.gz", hash = "sha256:b3f43d496c6daba4493e7c431722aeb7dbc6288f52a6e04e7b6023b0247817e6"},
+]
+retry = [
+    {file = "retry-0.9.2-py2.py3-none-any.whl", hash = "sha256:ccddf89761fa2c726ab29391837d4327f819ea14d244c232a1d24c67a2f98606"},
+    {file = "retry-0.9.2.tar.gz", hash = "sha256:f8bfa8b99b69c4506d6f5bd3b0aabf77f98cdb17f3c9fc3f5ca820033336fba4"},
 ]
 rsa = [
     {file = "rsa-4.0-py2.py3-none-any.whl", hash = "sha256:14ba45700ff1ec9eeb206a2ce76b32814958a98e372006c8fb76ba820211be66"},

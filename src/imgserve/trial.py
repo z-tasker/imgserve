@@ -7,12 +7,22 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from retry import retry
+
 from .elasticsearch import index_to_elasticsearch, RAW_IMAGES_INDEX_PATTERN
 from .errors import UnimplementedError
 from .logger import simple_logger
 from .utils import get_batch_slice
 
 QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.0.0"
+
+
+@retry(tries=10, backoff=5)
+def run_search(docker_run_command: str) -> None:
+    with open("qloader.log", "a") as f:
+        subprocess.run(
+            shlex.split(docker_run_command), stdin=None, stdout=f, stderr=f, check=True,
+        )
 
 
 def run_trial(
@@ -34,7 +44,7 @@ def run_trial(
     run_user_browser_scrape: bool = False,
     strict_config: bool = False,
     verbose: bool = False,
-    batch_slice: str = "1 of 1",
+    batch_slice: Optional[str] = None,
 ) -> None:
     """
         Light wrapper around github.com/mgrasker/qloader containerized search gatherer.
@@ -84,33 +94,26 @@ def run_trial(
             raise UnimplementedError()
         else:
             log.info(f"running image gathering container for query: {search_term}")
-            subprocess.run(
-                shlex.split(
-                    f'docker run \
-                        --user 1000:1000 \
-                        --shm-size=2g \
-                        -v {local_data_store}:/tmp/imgserve \
-                        --env QLOADER_BROWSER=Chrome \
-                        --env S3_ACCESS_KEY_ID={s3_access_key_id} \
-                        --env S3_SECRET_ACCESS_KEY={s3_secret_access_key} \
-                        --env S3_ENDPOINT_URL={s3_endpoint_url} \
-                        --env S3_REGION_NAME={s3_region_name} \
-                        --env S3_BUCKET_NAME={s3_bucket_name} \
-                        {QUERY_RUNNER_IMAGE} \
-                            --trial-id {trial_id} \
-                            --hostname {trial_hostname} \
-                            --ran-at {trial_timestamp} \
-                            --endpoint {endpoint} \
-                            --query-terms "{search_term}" \
-                            --max-images {max_images} \
-                            --output-path /tmp/imgserve/ \
-                            --metadata-path /tmp/imgserve/{trial_id}/.metadata-{trial_timestamp}.json'
-                ),
-                stdin=None,
-                stdout=None,
-                stderr=None,
-                check=True,
-            )
+            docker_run_command = f'docker run \
+                --user 1000:1000 \
+                --shm-size=2g \
+                -v {local_data_store}:/tmp/imgserve \
+                --env QLOADER_BROWSER=Chrome \
+                --env S3_ACCESS_KEY_ID={s3_access_key_id} \
+                --env S3_SECRET_ACCESS_KEY={s3_secret_access_key} \
+                --env S3_ENDPOINT_URL={s3_endpoint_url} \
+                --env S3_REGION_NAME={s3_region_name} \
+                --env S3_BUCKET_NAME={s3_bucket_name} \
+                {QUERY_RUNNER_IMAGE} \
+                    --trial-id {trial_id} \
+                    --hostname {trial_hostname} \
+                    --ran-at {trial_timestamp} \
+                    --endpoint {endpoint} \
+                    --query-terms "{search_term}" \
+                    --max-images {max_images} \
+                    --output-path /tmp/imgserve/ \
+                    --metadata-path /tmp/imgserve/{trial_id}/.metadata-{trial_timestamp}.json'
+            run_search(docker_run_command)
 
         trial_run_manifest = (
             local_data_store.joinpath(trial_id)

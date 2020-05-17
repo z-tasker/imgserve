@@ -1,15 +1,19 @@
+from __future__ import annotations
 import logging
+from pathlib import Path
 
-LINE_FORMAT = (
+DEBUG_FORMAT = (
     "[%(asctime)s] %(pathname)s:%(lineno)d (%(name)s)  %(levelname)s: %(message)s"
 )
+
+LINE_FORMAT = "[%(asctime)s] (%(name)s)  %(levelname)s: %(message)s"
 
 # TODO: use a json formatter here, and index errors to elasticsearch for analysis/alerting
 logging.basicConfig(
     level=logging.DEBUG,
-    format=LINE_FORMAT,
+    format=DEBUG_FORMAT,
     datefmt="%Y-%m-%dT%H:%M:%S",
-    filename="/tmp/imgserve.errors.log",
+    filename=Path(__file__).parents[2].joinpath("imgserve.log"),
     filemode="w",
 )
 

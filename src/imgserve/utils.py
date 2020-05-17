@@ -16,7 +16,7 @@ def get_batch_slice(items: List[Any], batch_slice: str) -> List[Any]:
         raise InvalidSliceArgumentError(
             f"could not parse {batch_slice} as a batch slice"
         )
-    slice_index += 1 # zero indexed
+    slice_index += 1  # zero indexed
     if total_slices == 0 or slice_index == 0:
         raise InvalidSliceArgumentError(
             f"numerator and denominator of batch_slice must be > 0"

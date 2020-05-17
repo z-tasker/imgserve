@@ -8,3 +8,5 @@ app/static/csv/experiments
 *.egg-info
 __pycache__
 jzazbz_array.npy
+qloader.log
+imgserve.log

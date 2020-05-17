@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import elasticsearch
+from retry import retry
 
 from .logger import simple_logger
 
@@ -132,6 +133,7 @@ def doc_gen(
     )
 
 
+@retry(tries=3, backoff=5, delay=2)
 def index_to_elasticsearch(
     elasticsearch_client: Elasticsearch,
     index: str,
