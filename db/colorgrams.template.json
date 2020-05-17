@@ -15,6 +15,15 @@
       "downloads" : {
         "type" : "keyword"
       },
+      "hostname": {
+        "type": "keyword"
+      },
+      "jzazbz_dist": {
+        "type": "float"
+      },
+      "rgb_dist": {
+        "type": "float"
+      },
       "s3_key" : {
         "type" : "keyword"
       },
