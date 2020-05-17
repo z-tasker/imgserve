@@ -34,7 +34,7 @@ def check_elasticsearch(
     try:
         health = elasticsearch_client.cluster.health()
         log.info(
-            f"cluster at {elasticsearch_fqdn}:{elasticsearch_port} is called '{health['cluster_name']}' and is {health['status']}."
+            f"cluster at {elasticsearch_fqdn}:{elasticsearch_port} is called '{health['cluster_name']}' and is {health['status']}"
         )
         if health["status"] == "red":
             raise ElasticsearchNotReadyError("cluster is red")
@@ -128,7 +128,7 @@ def doc_gen(
         yield doc
         yielded += 1
     log.info(
-        f"{yielded} documents yielded for indexing to {index}."
+        f"{yielded} documents yielded for indexing to {index}"
         + (f" ({exists} already existed)" if exists > 0 else "")
     )
 
@@ -158,4 +158,4 @@ def index_to_elasticsearch(
         doc_gen(elasticsearch_client, docs, index, identity_fields, overwrite),
     )
 
-    log.info("bulk indexing complete!")
+    log.info("bulk indexing complete")

@@ -136,3 +136,4 @@ def run_trial(
                 .joinpath(trial_hostname)
                 .joinpath(trial_timestamp)
             )
+            log.info("removed trial data from local storage")
