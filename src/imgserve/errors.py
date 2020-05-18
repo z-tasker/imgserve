@@ -14,6 +14,10 @@ class UnimplementedError(Exception):
     pass
 
 
+class MalformedTagsError(Exception):
+    pass
+
+
 class MissingCredentialsError(Exception):
     pass
 

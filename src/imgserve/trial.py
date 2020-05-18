@@ -21,7 +21,7 @@ from .s3 import s3_put_image
 from .utils import get_batch_slice
 from .vectors import get_vectors
 
-QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.1.0"
+QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.2.0"
 
 
 @retry(tries=10, backoff=5)
@@ -114,7 +114,7 @@ def run_trial(
                 --user 1000:1000 \
                 --shm-size=2g \
                 -v {local_data_store}:/tmp/imgserve \
-                --env QLOADER_BROWSER=Chrome \
+                --env QLOADER_BROWSER=Firefox \
                 --env S3_ACCESS_KEY_ID={s3_access_key_id} \
                 --env S3_SECRET_ACCESS_KEY={s3_secret_access_key} \
                 --env S3_ENDPOINT_URL={s3_endpoint_url} \
@@ -174,7 +174,7 @@ def run_trial(
                 documents.append(metadata)
                 if not no_local_data:
                     save_to = (
-                        trial_downloads.parent.joinpath("colorgrams")
+                        trial_downloads.parents[1].joinpath("colorgrams")
                         .joinpath(vector_stem)
                         .with_suffix(".png")
                     )

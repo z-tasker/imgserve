@@ -6,7 +6,8 @@ from pathlib import Path
 import numpy as np
 from compsyn.vectors import Vector
 
-from .errors import NoDownloadsError
+from .errors import NoDownloadsError, MalformedTagsError
+from .logger import simple_logger
 
 
 def tags_to_hash(tags: List[str]) -> str:
@@ -29,12 +30,17 @@ def array_to_list(array: numpy.ndarray) -> List[float]:
 def get_vectors(
     downloads_path: Path,
 ) -> Generator[Tuple[Vector, Dict[str, Any]], None, None]:
+    log = simple_logger("get_vectors")
     for folder in downloads_path.iterdir():
         if len(list(folder.iterdir())) == 0:
             raise NoDownloadsError(f"No downloaded images available at {folder}")
         vector = Vector(folder.name, downloads_path)
         tags = str(folder.stem).split("|")
-        metadata = {key: value for key, value in (tag.split("=") for tag in tags)}
+        try:
+            metadata = {key: value for key, value in (tag.split("=") for tag in tags)}
+        except ValueError as e:
+            raise MalformedTagsError(f"Couldn't load metadata from colorgram stem: {tags}") from e
+
         metadata.update(
             {
                 "downloads": [img.stem for img in folder.iterdir()],
