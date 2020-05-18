@@ -125,6 +125,11 @@ def get_experiment_args(
         action="store_true",
         help="Share IP address information of this host to Elasticsearch, to facilitate analysis of global search results",
     )
+    mode.add_argument(
+        "--delete-experiment",
+        action="store_true",
+        help="Remove data associated with this experiment",
+    )
 
     experiment_parser.add_argument(
         "--trial-ids",

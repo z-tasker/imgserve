@@ -5,7 +5,11 @@ from pathlib import Path
 import elasticsearch
 from retry import retry
 
-from .errors import ElasticsearchUnreachableError, ElasticsearchNotReadyError, MissingTemplateError
+from .errors import (
+    ElasticsearchUnreachableError,
+    ElasticsearchNotReadyError,
+    MissingTemplateError,
+)
 from .logger import simple_logger
 
 log = simple_logger("imgserve.elasticsearch")
@@ -147,3 +151,20 @@ def index_to_elasticsearch(
     )
 
     log.info("bulk indexing complete")
+
+
+def delete_from_elasticsearch(
+    elasticsearch_client: Elasticsearch,
+    index: str,
+    body: Dict[str, Any],
+    dry_run: bool = True,
+) -> None:
+    if dry_run:
+        resp = elasticsearch_client.search(index=index, body=body,)
+        log.info(f"[DRY RUN] would delete {len(resp['hits']['hits'])} documents")
+        return
+    resp = elasticsearch_client.delete_by_query(index=index, body=body)
+    import code
+
+    code.interact(local=locals())
+    return None
