@@ -62,6 +62,9 @@ def get_s3_args(
     s3_parser = parser.add_argument_group("s3")
 
     s3_parser.add_argument(
+        "--s3-bucket", required=True, help="bucket where img data is stored in S3",
+    )
+    s3_parser.add_argument(
         "--s3-region-name",
         type=str,
         default=os.getenv("AWS_REGION_NAME", None),
@@ -125,6 +128,21 @@ def get_experiment_args(
         action="store_true",
         help="Share IP address information of this host to Elasticsearch, to facilitate analysis of global search results",
     )
+    mode.add_argument(
+        "--delete",
+        action="store_true",
+        help="Delete data associated with this experiment name",
+    )
+    mode.add_argument(
+        "--pull",
+        action="store_true",
+        help="Pull colorgrams associated with this experiment name",
+    )
+    mode.add_argument(
+        "--from-archive-path",
+        type=Path,
+        help="Load raw-images from an expanded archive",
+    )
 
     experiment_parser.add_argument(
         "--trial-ids",
@@ -166,9 +184,6 @@ def get_experiment_args(
         "--dry-run",
         action="store_true",
         help="Take no action, but show what would happen",
-    )
-    experiment_parser.add_argument(
-        "--s3-bucket", required=True, help="bucket where img data is stored in S3",
     )
     experiment_parser.add_argument(
         "--force-remote-pull",

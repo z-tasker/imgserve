@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
 import csv
 import os
 import json
@@ -20,6 +21,10 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 from imgserve import get_experiment_csv_path, STATIC, LOCAL_DATA_STORE
+from imgserve.args import get_elasticsearch_args, get_s3_args
+from imgserve.clients import get_clients
+
+from vectors import get_experiments
 
 middleware = [
     Middleware(
@@ -68,7 +73,18 @@ async def open_experiment_csv(csv_path: Path) -> Dict[str, Dict[str, Any]]:
 async def home(request: Request):
     template = "home.html"
 
-    experiments = [p.name for p in Path("static/img/colorgrams").glob("*")]
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
+
+    context = {"request": request, "experiments": experiments}
+    return templates.TemplateResponse(template, context)
+
+
+@app.route("/search")
+async def search(request: Request):
+    template = "search.html"
+
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
+
     context = {"request": request, "experiments": experiments}
     return templates.TemplateResponse(template, context)
 
@@ -259,4 +275,15 @@ async def generated(request: Request):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    get_elasticsearch_args(parser)
+    get_s3_args(parser)
+
+    args = parser.parse_args()
+
+    global ELASTICSEARCH_CLIENT
+    global S3_CLIENT
+    ELASTICSEARCH_CLIENT, S3_CLIENT = get_clients(args)
+
     uvicorn.run(app, host="127.0.0.1", port=8080)

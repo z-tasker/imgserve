@@ -3,16 +3,15 @@
   <link rel="stylesheet" href="static/css/styles.css"/>
  </header>
  <body>
-  <div>
-    <h2 style="color: gray;">experiments</h2>
-    <ul>
-    {% for experiment in experiments %}
+  <div class ="cube">
+    <label for="experiment">experiment:</label>
+    <select name="experiment_name" id="experiment_name">
+      {% for experiment_name in experiments.keys() %}
+      <option value="{{ experiment_name }}">{{ experiment_name }}</option>
+      {% endfor %}
+    </select>
     <br>
-    <div class="banner">
-    <li><a href="/{{ experiment }}">{{ experiment.replace("_", " ") }}</a></li>
-    </div>
-    {% endfor %}
-    </ul>
+    <input type="submit" value="explore">
   </div>
  </body>
 </html>

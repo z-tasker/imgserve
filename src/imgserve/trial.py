@@ -21,7 +21,7 @@ from .s3 import s3_put_image
 from .utils import get_batch_slice
 from .vectors import get_vectors
 
-QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.2.0"
+QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.3.0"
 
 
 @retry(tries=10, backoff=5)
@@ -174,7 +174,8 @@ def run_trial(
                 documents.append(metadata)
                 if not no_local_data:
                     save_to = (
-                        trial_downloads.parents[1].joinpath("colorgrams")
+                        trial_downloads.parents[1]
+                        .joinpath("colorgrams")
                         .joinpath(vector_stem)
                         .with_suffix(".png")
                     )

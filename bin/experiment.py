@@ -8,9 +8,10 @@ import socket
 from pathlib import Path
 
 import requests
+from PIL import Image
 
 from imgserve import get_experiment_colorgrams_path, get_experiment_csv_path, STATIC
-from imgserve.api import ImgServe
+from imgserve.api import ImgServe, Experiment
 from imgserve.assemble import assemble_downloads
 from imgserve.args import (
     get_elasticsearch_args,
@@ -69,6 +70,15 @@ def main(args: argparse.Namespace) -> None:
     log.info(f"starting {args.experiment_name}...")
 
     elasticsearch_client, s3_client = get_clients(args)
+
+    experiment = Experiment(
+        bucket_name=args.s3_bucket,
+        elasticsearch_client=elasticsearch_client,
+        local_data_store=args.local_data_store,
+        name=args.experiment_name,
+        s3_client=s3_client,
+        dry_run=args.dry_run,
+    )
 
     imgserve = ImgServe(
         remote_url=args.remote_url,
@@ -138,62 +148,119 @@ def main(args: argparse.Namespace) -> None:
         trial_ids = get_trial_ids(experiment_name=experiment_name)
         # Check if trial_id in args.dimensions, warn results will mix if not
 
-    log.info(
-        f"assembling 'downloads' folder from data, splitting images by {args.dimensions}..."
-    )
-    downloads: Path = assemble_downloads(
-        elasticsearch_client=elasticsearch_client,
-        s3_client=s3_client,
-        bucket_name=args.s3_bucket,
-        trial_ids=args.trial_ids,
-        experiment_name=args.experiment_name,
-        dimensions=args.dimensions,
-        local_data_store=args.local_data_store,
-        dry_run=args.dry_run,
-        force_remote_pull=args.force_remote_pull,
-        prompt=args.prompt,
-    )
-
-    if args.dry_run:
-        log.info("--dry-run passed, cannot continue past here")
-        return
-
-    # create compsyn.vectors.Vector objects out of each folder, and also store metadata for Elasticsearch
-    log.info(f"generating vectors from {downloads}...")
-    colorgram_documents = list()
-    colorgrams_path = get_experiment_colorgrams_path(
-        local_data_store=args.local_data_store,
-        app_static_path=STATIC,
-        name=args.experiment_name,
-    )
-    for vector, metadata in get_vectors(downloads):
-        # store colorgram images in S3
-        s3_put_image(
+    if args.dimensions is not None:
+        log.info(
+            f"assembling 'downloads' folder from data, splitting images by {args.dimensions}..."
+        )
+        downloads: Path = assemble_downloads(
+            elasticsearch_client=elasticsearch_client,
             s3_client=s3_client,
-            image=vector.colorgram,
-            bucket=args.s3_bucket,
-            object_path=Path(args.experiment_name).joinpath(metadata["s3_key"]),
+            bucket_name=args.s3_bucket,
+            trial_ids=args.trial_ids,
+            experiment_name=args.experiment_name,
+            dimensions=args.dimensions,
+            local_data_store=args.local_data_store,
+            dry_run=args.dry_run,
+            force_remote_pull=args.force_remote_pull,
+            prompt=args.prompt,
+        )
+
+        if args.dry_run:
+            log.info("--dry-run passed, cannot continue past here")
+            return
+
+        # create compsyn.vectors.Vector objects out of each folder, and also store metadata for Elasticsearch
+        log.info(f"generating vectors from {downloads}...")
+        colorgram_documents = list()
+        colorgrams_path = get_experiment_colorgrams_path(
+            local_data_store=args.local_data_store,
+            app_static_path=STATIC,
+            name=args.experiment_name,
+        )
+        for vector, metadata in get_vectors(downloads):
+            # store colorgram images in S3
+            s3_put_image(
+                s3_client=s3_client,
+                image=vector.colorgram,
+                bucket=args.s3_bucket,
+                object_path=Path(args.experiment_name).joinpath(metadata["s3_key"]),
+                overwrite=args.overwrite,
+            )
+            # save colorgram locally, regardless of overwrite
+            vector.colorgram.save(
+                colorgrams_path.joinpath(vector.word).with_suffix(".png")
+            )
+            # queue colorgram metadata for indexing to Elasticsearch
+            metadata.update(experiment_name=args.experiment_name)
+            colorgram_documents.append(metadata)
+
+        log.info(f"{len(colorgram_documents)} colorgrams persisted to S3, indexing...")
+
+        index_to_elasticsearch(
+            elasticsearch_client=elasticsearch_client,
+            index=COLORGRAMS_INDEX_PATTERN,
+            docs=colorgram_documents,
+            identity_fields=["experiment_name", "downloads", "s3_key"],
             overwrite=args.overwrite,
         )
-        # save colorgram locally, regardless of overwrite
-        vector.colorgram.save(colorgrams_path.joinpath(vector.word).with_suffix(".png"))
-        # queue colorgram metadata for indexing to Elasticsearch
-        metadata.update(experiment_name=args.experiment_name)
-        colorgram_documents.append(metadata)
 
-    log.info(f"{len(colorgram_documents)} colorgrams persisted to S3, indexing...")
+        log.info(
+            f"finished experiment analysis. Local colorgrams from this experiment: {colorgrams_path}"
+        )
 
-    index_to_elasticsearch(
-        elasticsearch_client=elasticsearch_client,
-        index=COLORGRAMS_INDEX_PATTERN,
-        docs=colorgram_documents,
-        identity_fields=["experiment_name", "downloads", "s3_key"],
-        overwrite=args.overwrite,
-    )
+    if args.delete:
+        experiment.delete()
 
-    log.info(
-        f"finished experiment analysis. Local colorgrams from this experiment: {colorgrams_path}"
-    )
+    if args.pull:
+        experiment.pull()
+
+    if args.from_archive_path is not None:
+        manifest_path = args.from_archive_path.joinpath("manifest.json")
+        if not manifest_path.is_file():
+            raise FileNotFoundError(f"{manifest_path} not found, cannot index")
+
+        manifests = json.loads(manifest_path.read_text())
+
+        for manifest in manifests:
+            manifest["experiment_name"] = args.experiment_name
+            manifest["trial_id"] = f"archive-{args.experiment_name}"
+            manifest["trial_timestamp"] = manifest["ran_at"]
+            rel_path = (
+                Path(manifest["hostname"])
+                .joinpath(manifest["query"])
+                .joinpath(manifest["trial_timestamp"])
+                .joinpath(f"images")
+                .joinpath(manifest["image_id"])
+                .with_suffix(".jpg")
+            )
+
+            image_path = args.from_archive_path.joinpath(rel_path)
+            image = Image.open(image_path).convert("RGB")
+            with open(image_path, "w") as f:
+                image.resize((300, 300), Image.ANTIALIAS).save(
+                    f, "JPEG", optimize=True, quality=85
+                )
+            s3_put_image(
+                s3_client=s3_client,
+                image=image_path,
+                bucket=args.s3_bucket,
+                object_path=Path("data")
+                .joinpath(manifest["trial_id"])
+                .joinpath(rel_path),
+                overwrite=args.overwrite,
+            )
+            if not image_path.is_file():
+                raise FileNotFoundError(
+                    f"while processing archive {args.from_archive_path}, could not find local source image {image_path}"
+                )
+
+        index_to_elasticsearch(
+            elasticsearch_client,
+            index="raw-images",
+            docs=manifests,
+            identity_fields=["experiment_name", "trial_id", "trial_timestamp"],
+            overwrite=args.overwrite,
+        )
 
 
 if __name__ == "__main__":

@@ -8,13 +8,14 @@ body{
 	width:100%;
 	margin-bottom: 20px;
 }
+
 .banner a {
-	margin-left: 0.5em;
 	text-decoration: none;
 	padding:5px;
 	background-color: gray;
 	border-top: 5px;
 	border-color: white;
+        float:left;
 }
 
 .banner a:visited {
@@ -69,5 +70,13 @@ body{
 
 .colorgram {
     margin: 5px;
+}
+
+table, th, td {
+  border: 1px solid gray;
+}
+
+table, th, td {
+  color: green;
 }
 

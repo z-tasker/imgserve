@@ -1,0 +1,24 @@
+<html>
+ <header>
+  <link href="static/css/styles.css" rel="stylesheet"/>
+  <link rel="icon"
+      type="image/x-icon"
+      href="static/img/favicon.ico">
+ </header>
+ <body>
+  <div class="banner">
+    <a href="/">🏠</a>
+    {% if raw_data_link %}
+    <a href="{{ raw_data_link }}" target="_blank">🗄️</a>
+    {% endif %}
+  </div>
+  <div class="cube">
+    <select name="query" id="query">
+      {% for query in queries %}
+      <option value="{{ query }}">{{ query }}</option>
+      {% endfor %}
+    </select>
+    <input type="submit" value="view">
+  </div>
+ </body>
+</html>

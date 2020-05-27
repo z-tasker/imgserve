@@ -2,6 +2,8 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
+import PIL
+
 from .logger import simple_logger
 
 log = simple_logger("imgserve.s3")
@@ -9,14 +11,22 @@ log = simple_logger("imgserve.s3")
 
 def s3_put_image(
     s3_client: botocore.clients.s3,
-    image: PIL.Image,
+    image: Union[PIL.Image, Path, bytes],
     bucket: str,
     object_path: Path,
     overwrite: bool = False,
 ) -> None:
 
-    image_bytes = io.BytesIO()
-    image.save(image_bytes, format="PNG")
+    if isinstance(image, PIL.Image.Image):
+        image_bytes = io.BytesIO()
+        image.save(image_bytes, format="PNG")
+        image_bytes = image_bytes.getvalue()
+    elif isinstance(image, Path):
+        image_bytes = image.read_bytes()
+    elif isinstance(image, bytes):
+        image_bytes = image
+    else:
+        raise ValueError(f"{image} is not a known type")
 
     # only write images to s3 that don't already exist unless overwrite is passed
     try:
@@ -27,7 +37,11 @@ def s3_put_image(
     except s3_client.exceptions.NoSuchKey:
         pass
 
-    s3_client.put_object(
-        Body=image_bytes.getvalue(), Bucket=bucket, Key=str(object_path)
-    )
+    s3_client.put_object(Body=image_bytes, Bucket=bucket, Key=str(object_path))
     log.info(f"uploaded {object_path} to s3.")
+
+
+def get_s3_bytes(
+    s3_client: botocore.clients.s3, bucket_name: str, s3_path: Path
+) -> bytes:
+    return s3_client.get_object(Bucket=bucket_name, Key=str(s3_path))["Body"].read()
