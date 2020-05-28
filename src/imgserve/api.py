@@ -49,6 +49,7 @@ class Experiment:
     s3_client: botocore.client.s3
     query: Optional[Dict[str, Any]] = None
     dry_run: bool = False
+    debug: bool = False
 
     def __post_init__(self) -> None:
         if self.query is None:
@@ -62,14 +63,16 @@ class Experiment:
         )
         self.log.info(f"initialized")
 
-    def _sync_s3_path(self, path: Path) -> None:
+    def _sync_s3_path(self, path: Path) -> Path:
         local_path = self.local_data_store.joinpath(path)
         if not local_path.is_file():
-            path.write_bytes(
+            local_path.parent.mkdir(exist_ok=True, parents=True)
+            local_path.write_bytes(
                 get_s3_bytes(
                     s3_client=self.s3_client, bucket_name=self.bucket_name, s3_path=path
                 )
             )
+        return local_path
 
     def _delete_s3_object(self, s3_path: Path) -> None:
         self.s3_client.delete_object(Bucket=self.bucket_name, Key=str(s3_path))
@@ -90,6 +93,29 @@ class Experiment:
         ):
             colorgram_document = ColorgramDocument(doc)
             yield colorgram_document
+
+    def get(self, word: str) -> Generator[Tuple[Dict[str, Any], Path], None, None]:
+        """
+            Get all images associated with a given word for this experiment
+        """
+        docs = get_response_value(
+            elasticsearch_client=self.elasticsearch_client,
+            index="colorgrams",
+            query={"query": {"match": {"query": word }}},
+            value_keys=["hits", "hits"],
+            size=100,
+            debug=self.debug
+        )
+        if len(docs) == 0:
+            raise FileNotFoundError(
+                f"No colorgram for {word} from {self.name} found!"
+            )
+        if len(docs) > 1:
+            self.log.info(f"more than one colorgram for {word}")
+
+        for doc in docs:
+            yield (doc, self._sync_s3_path(ColorgramDocument(doc).path))
+
 
     def delete(self) -> None:
         self.log.info(f"deleting raw-images from S3...")
@@ -135,6 +161,7 @@ class Experiment:
                 index="_all",
                 query=delete_query,
                 value_keys=["aggregations", "count", "value"],
+                debug=self.debug
             )
             self.log.info(f"would delete {would_delete} documents from elasticsearch")
 

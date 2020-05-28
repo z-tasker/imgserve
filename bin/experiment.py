@@ -20,7 +20,7 @@ from imgserve.args import (
     get_s3_args,
 )
 from imgserve.clients import get_clients
-from imgserve.elasticsearch import index_to_elasticsearch, COLORGRAMS_INDEX_PATTERN
+from imgserve.elasticsearch import get_response_value, index_to_elasticsearch, COLORGRAMS_INDEX_PATTERN
 from imgserve.logger import simple_logger
 from imgserve.s3 import s3_put_image
 from imgserve.trial import run_trial
@@ -78,6 +78,7 @@ def main(args: argparse.Namespace) -> None:
         name=args.experiment_name,
         s3_client=s3_client,
         dry_run=args.dry_run,
+        debug=args.debug
     )
 
     imgserve = ImgServe(
@@ -261,6 +262,21 @@ def main(args: argparse.Namespace) -> None:
             identity_fields=["experiment_name", "trial_id", "trial_timestamp"],
             overwrite=args.overwrite,
         )
+
+    if args.get is not None:
+        for doc, img_path in experiment.get(args.get):
+            del doc["_source"]["downloads"]
+            print(json.dumps(doc, indent=2))
+            print(img_path)
+            image = Image.open(img_path)
+            image.show()
+            input("continue...")
+            image.close()
+
+
+
+        
+
 
 
 if __name__ == "__main__":

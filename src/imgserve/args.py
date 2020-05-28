@@ -134,6 +134,11 @@ def get_experiment_args(
         help="Delete data associated with this experiment name",
     )
     mode.add_argument(
+        "--get",
+        type=str,
+        help="Get and display colorgram for the provided query term from this experiment name"
+    )
+    mode.add_argument(
         "--pull",
         action="store_true",
         help="Pull colorgrams associated with this experiment name",
@@ -200,6 +205,11 @@ def get_experiment_args(
         "--overwrite",
         action="store_true",
         help="overwrite existing assets: colorgram images in S3 and documents in Elasticsearch",
+    )
+    experiment_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="provide additional output to help debug queries, etc"
     )
 
     return parser
