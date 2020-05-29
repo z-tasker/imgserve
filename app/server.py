@@ -77,6 +77,16 @@ async def open_experiment_csv(csv_path: Path) -> Dict[str, Dict[str, Any]]:
     return unique_queries
 
 
+async def respond_with_404(request: Request, message: str):
+    response = templates.TemplateResponse(
+        "404.html",
+        {
+            "request": request,
+            "message": message,
+        },
+    )
+    return response
+
 @app.route("/")
 async def home(request: Request):
     template = "home.html"
@@ -94,13 +104,7 @@ async def archive(request: Request):
         experiment = request.query_params["experiment"]
         dl_link = get_raw_data_link(experiment)
         if dl_link is None:
-            response = templates.TemplateResponse(
-                "404.html",
-                {
-                    "request": request,
-                    "message": f"No download link available for {experiment}",
-                },
-            )
+            response = await respond_with_404(request=request, message=f"No download link available for {experiment}")
         else:
             response = RedirectResponse(url=dl_link)
     else:
@@ -311,14 +315,18 @@ async def generated(request: Request):
 
     colorgrams = defaultdict(dict)
     experiment = Path(request["path"]).name
-    all_colorgrams = sorted(
-        [
-            f.stem
-            for f in Path(__file__)
-            .parent.joinpath(f"static/img/colorgrams/{experiment}")
-            .iterdir()
-        ]
-    )
+    try:
+        all_colorgrams = sorted(
+            [
+                f.stem
+                for f in Path(__file__)
+                .parent.joinpath(f"static/img/colorgrams/{experiment}")
+                .iterdir()
+            ]
+        )
+    except FileNotFoundError as e:
+        return await respond_with_404(request=request, message=str(e))
+
     for cg in all_colorgrams:
         dimensions = {dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|")}
         colorgrams[dimensions["query"]][cg] = ", ".join(
