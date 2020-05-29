@@ -206,7 +206,7 @@ async def experiments_listener(websocket: WebSocket):
                 clean_resp = copy.deepcopy(resp)
                 del clean_resp["found"]["doc"]["_source"]["downloads"]
                 del clean_resp["found"]["image_bytes"]
-                log.info(f"sending JSON response through websocket: {resp}")
+                log.info(f"sending JSON response through websocket: {clean_resp}")
                 await websocket.send_json(resp)
         elif request["action"] == "list_experiments":
             await websocket.send_json(
