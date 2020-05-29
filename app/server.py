@@ -12,7 +12,12 @@ from pathlib import Path
 import uvicorn
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
+from starlette.responses import (
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+    RedirectResponse,
+)
 from starlette.routing import Route, Mount, WebSocketRoute
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
@@ -81,13 +86,20 @@ async def home(request: Request):
     context = {"request": request, "experiments": experiments, "results": results}
     return templates.TemplateResponse(template, context)
 
+
 @app.route("/archive")
 async def archive(request: Request):
     if "experiment" in request.query_params:
         experiment = request.query_params["experiment"]
         dl_link = get_raw_data_link(experiment)
         if dl_link is None:
-            response = templates.TemplateResponse("404.html", {"request": request, "message": f"No download link available for {experiment}"})
+            response = templates.TemplateResponse(
+                "404.html",
+                {
+                    "request": request,
+                    "message": f"No download link available for {experiment}",
+                },
+            )
         else:
             response = RedirectResponse(url=dl_link)
     else:
@@ -122,11 +134,20 @@ async def sketch(request: Request):
 
     experiments = get_experiments(ELASTICSEARCH_CLIENT)
 
-    context = {"request": request, "default_experiment": default_experiment if default_experiment is not None else "concreteness", "experiments": experiments}
+    context = {
+        "request": request,
+        "default_experiment": default_experiment
+        if default_experiment is not None
+        else "concreteness",
+        "experiments": experiments,
+    }
     return templates.TemplateResponse(template, context)
 
-async def valid_webhook_request(websocket: WebSocket, request: Dict[str, Any], required_keys: List[str]) -> bool:
-    valid = True 
+
+async def valid_webhook_request(
+    websocket: WebSocket, request: Dict[str, Any], required_keys: List[str]
+) -> bool:
+    valid = True
     missing = list()
     for required_key in required_keys:
         if required_key not in request:
@@ -135,13 +156,10 @@ async def valid_webhook_request(websocket: WebSocket, request: Dict[str, Any], r
 
     if not valid:
         await websocket.send_json(
-            {
-                "status": 400,
-                "message": "missing required keys",
-                "missing": missing
-            }
+            {"status": 400, "message": "missing required keys", "missing": missing}
         )
-    return valid 
+    return valid
+
 
 @app.websocket_route("/data")
 async def experiments_listener(websocket: WebSocket):
@@ -152,18 +170,25 @@ async def experiments_listener(websocket: WebSocket):
 
     if valid_webhook_request(websocket, request, ["action"]):
         if request["action"] == "get":
-            if valid_webhook_request(websocket, request, required_keys=["experiment", "get"]):
+            if valid_webhook_request(
+                websocket, request, required_keys=["experiment", "get"]
+            ):
                 experiment = Experiment(
                     bucket_name=S3_BUCKET,
                     elasticsearch_client=ELASTICSEARCH_CLIENT,
                     local_data_store=Path("static/data"),
                     name=request["experiment"],
-                    s3_client=S3_CLIENT
+                    s3_client=S3_CLIENT,
                 )
                 try:
-                    found = [ 
-                        {"doc": doc, "image_bytes": base64.b64encode(img_path.read_bytes()).decode("utf-8") } 
-                        for doc, img_path in experiment.get(request["get"]) 
+                    found = [
+                        {
+                            "doc": doc,
+                            "image_bytes": base64.b64encode(
+                                img_path.read_bytes()
+                            ).decode("utf-8"),
+                        }
+                        for doc, img_path in experiment.get(request["get"])
                     ]
                 except FileNotFoundError as e:
                     log.info(f"no match for get {e}")
@@ -171,18 +196,22 @@ async def experiments_listener(websocket: WebSocket):
                         {
                             "status": 404,
                             "message": "no colorgram for search term",
-                            "query": request["get"]
+                            "query": request["get"],
                         }
                     )
                     return
-                      
-                resp =  {"status": 200, "found": found[0]}
+
+                resp = {"status": 200, "found": found[0]}
                 log.info(f"sending JSON response through websocket: {resp}")
                 await websocket.send_json(resp)
         elif request["action"] == "list_experiments":
-            await websocket.send_json({"status": 200, "experiments": list(experiments.keys()) })
+            await websocket.send_json(
+                {"status": 200, "experiments": list(experiments.keys())}
+            )
         else:
-            await websocket.send_json({"status": 404, "message": f"no action found for {request['action']}"})
+            await websocket.send_json(
+                {"status": 404, "message": f"no action found for {request['action']}"}
+            )
 
 
 @app.route("/langip_grids_{langip_name}")
