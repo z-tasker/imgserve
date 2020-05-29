@@ -135,10 +135,22 @@ async def experiments_listener(websocket: WebSocket):
                     name=request["experiment"],
                     s3_client=S3_CLIENT
                 )
-                found = [ 
-                    {"doc": doc, "image_bytes": base64.b64encode(img_path.read_bytes()).decode("utf-8") } 
-                    for doc, img_path in experiment.get(request["get"]) 
-                ]
+                try:
+                    found = [ 
+                        {"doc": doc, "image_bytes": base64.b64encode(img_path.read_bytes()).decode("utf-8") } 
+                        for doc, img_path in experiment.get(request["get"]) 
+                    ]
+                except FileNotFoundError as e:
+                    log.info(f"no match for get {e}")
+                    await websocket.send_json(
+                        {
+                            "status": 404,
+                            "message": "no colorgram for search term",
+                            "query": request["get"]
+                        }
+                    )
+                    return
+                      
                 resp =  {"status": 200, "found": found[0]}
                 log.info(f"sending JSON response through websocket: {resp}")
                 await websocket.send_json(resp)

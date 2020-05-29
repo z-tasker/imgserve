@@ -68,6 +68,22 @@ body{
     color: gray;
 }
 
+.selector input, select, button {
+  background-color: black;
+  color: gray;
+  display: block;
+  background-image: url('searchicon.png');
+  background-position: 10px 10px;
+  background-repeat: no-repeat;
+  border: 2px solid #555;
+  width: 80%;
+  margin: auto;
+}
+
+.selector input[type=text]:focus {
+  border: 2px solid green;
+}
+
 .colorgram {
     margin: 5px;
 }
@@ -80,3 +96,8 @@ table, th, td {
   color: green;
 }
 
+.custom-select select {
+    -moz-appearance:none; /* Firefox */
+    -webkit-appearance:none; /* Safari and Chrome */
+    appearance:none;
+}

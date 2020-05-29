@@ -2,19 +2,28 @@
 
 {% block content %}
 <main>
-  <div class="column">
+  <div class="gallery">
     {% for i in range(5) %}
-    <h4 id="label-{{ i }}"></h4>
-    <div class="colorgram"><img id="colorgram-{{ i }}"></div>
-    <form action="javascript:getImageFromFormWebsocket(action='get', values_from=['get', 'experiment'], img_target='colorgram', use_id='{{ i }}')">
-      <select id="experiment-{{ i }}">
-        {% for experiment_name in experiments.keys() %}
-        <option value="{{ experiment_name }}">{{ experiment_name }}</option>
-        {% endfor %}
-      </select>
-      <input id="get-{{ i }}" type="text" autofocus autocomplete="off"><br>
-      <button type="submit" value="Submit">Submit</button>
-    </form> 
+    <div class="column">
+      {% for j in range(5) %}
+      <h4 id="label-{{ i }}-{{ j }}"></h4>
+      <div class="colorgram"><img id="colorgram-{{ i }}-{{ j }}"></div>
+      <button id="hide-{{ i }}-{{ j }}" onclick="javascript:hideForm(target='selector', use_id='{{ i }}-{{ j }}')">hide</button>
+      <div class="selector" id="selector-{{ i }}-{{ j }}">
+        <form action="javascript:getImageFromFormWebsocket(action='get', values_from=['get', 'experiment'], img_target='colorgram', use_id='{{ i }}-{{ j }}')">
+          <div class="custom-select">
+            <select id="experiment-{{ i }}-{{ j }}">
+              {% for experiment_name in experiments.keys() %}
+              <option value="{{ experiment_name }}">{{ experiment_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <input id="get-{{ i }}-{{ j }}" type="text" autofocus autocomplete="off" placeholder="search...">
+          <button type="submit" value="Submit">Submit</button>
+        </form> 
+      </div>
+      {% endfor %}
+    </div>
     {% endfor %}
   </div>
 </main>

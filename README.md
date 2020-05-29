@@ -53,3 +53,12 @@ This repository also includes a web application for viewing results in the brows
 This will start a listener at `localhost:8080`. Images and experiment csvs are served out of the `IMGSERVE_LOCAL_DATA_STORE` path configured in `.env`. To start developing a new experiment, create a .csv file at `${IMGSERVE_LOCAL_DATA_STORE}/imgserve/experiments/<experiment_name>.csv`. This file must have the following headers: `search_term`, `region`. Any additional columns will be associated with the raw data results.
 
 open `localhost:8080` in your browser to view experiment results.
+
+
+## Restoring from Archive
+
+./experiment.sh --from-archive-path /Volumes/LACIE/compsyn/data/alpha-archives/langip-grids-emotions --experiment-name langip-grids-emotions
+
+## Running LangIP
+
+./experiment.sh --experiment-name langip-grids-emotions --trial-ids archive-langip-grids-emotions --dimensions query eng_ref language region experiment_name trial_timestamp

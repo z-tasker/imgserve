@@ -101,7 +101,7 @@ class Experiment:
         docs = get_response_value(
             elasticsearch_client=self.elasticsearch_client,
             index="colorgrams",
-            query={"query": {"match": {"query": word }}},
+            query={"query": {"bool": { "filter": [{"term": {"query": word }}, {"term": {"experiment_name": self.name}}]}}},
             value_keys=["hits", "hits"],
             size=100,
             debug=self.debug
