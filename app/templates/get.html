@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main>
+  <div class="column">
+    {% for i in range(5) %}
+    <h4 id="label-{{ i }}"></h4>
+    <div class="colorgram"><img id="colorgram-{{ i }}"></div>
+    <form action="javascript:getImageFromFormWebsocket(action='get', values_from=['get', 'experiment'], img_target='colorgram', use_id='{{ i }}')">
+      <select id="experiment-{{ i }}">
+        {% for experiment_name in experiments.keys() %}
+        <option value="{{ experiment_name }}">{{ experiment_name }}</option>
+        {% endfor %}
+      </select>
+      <input id="get-{{ i }}" type="text" autofocus autocomplete="off"><br>
+      <button type="submit" value="Submit">Submit</button>
+    </form> 
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import argparse
+import base64
 import csv
 import os
 import json
@@ -21,6 +22,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 from imgserve import get_experiment_csv_path, STATIC, LOCAL_DATA_STORE
+from imgserve.api import Experiment
 from imgserve.args import get_elasticsearch_args, get_s3_args
 from imgserve.clients import get_clients
 
@@ -87,6 +89,65 @@ async def search(request: Request):
 
     context = {"request": request, "experiments": experiments}
     return templates.TemplateResponse(template, context)
+
+
+@app.route("/get")
+async def get(request: Request):
+    template = "get.html"
+
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
+
+    context = {"request": request, "experiments": experiments}
+    return templates.TemplateResponse(template, context)
+
+async def valid_webhook_request(websocket: WebSocket, request: Dict[str, Any], required_keys: List[str]) -> bool:
+    valid = True 
+    missing = list()
+    for required_key in required_keys:
+        if required_key not in request:
+            valid = False
+            missing.append(required_key)
+
+    if not valid:
+        await websocket.send_json(
+            {
+                "status": 400,
+                "message": "missing required keys",
+                "missing": missing
+            }
+        )
+    return valid 
+
+@app.websocket_route("/data")
+async def experiments_listener(websocket: WebSocket):
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
+
+    await websocket.accept()
+    request = await websocket.receive_json()
+
+    if valid_webhook_request(websocket, request, ["action"]):
+        if request["action"] == "get":
+            if valid_webhook_request(websocket, request, required_keys=["experiment", "get"]):
+                experiment = Experiment(
+                    bucket_name=S3_BUCKET,
+                    elasticsearch_client=ELASTICSEARCH_CLIENT,
+                    local_data_store=Path("static/data"),
+                    name=request["experiment"],
+                    s3_client=S3_CLIENT
+                )
+                found = [ 
+                    {"doc": doc, "image_bytes": base64.b64encode(img_path.read_bytes()).decode("utf-8") } 
+                    for doc, img_path in experiment.get(request["get"]) 
+                ]
+                resp =  {"status": 200, "found": found[0]}
+                log.info(f"sending JSON response through websocket: {resp}")
+                await websocket.send_json(resp)
+        elif request["action"] == "list_experiments":
+            await websocket.send_json({"status": 200, "experiments": list(experiments.keys()) })
+        else:
+            await websocket.send_json({"status": 404, "message": f"no action found for {request['action']}"})
+
+
 
 
 @app.route("/tesselation")
@@ -283,7 +344,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     global ELASTICSEARCH_CLIENT
+    global S3_BUCKET
     global S3_CLIENT
     ELASTICSEARCH_CLIENT, S3_CLIENT = get_clients(args)
+    S3_BUCKET = args.s3_bucket
 
     uvicorn.run(app, host="127.0.0.1", port=8080)

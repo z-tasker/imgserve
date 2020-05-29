@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Compsyn Visualizations">
+    <title>Comptuational Synesthaesia</title>
+    <meta name="author" content="MGrasker">
+    <meta name="author" content="MGrasker">
+    <link href="{{ url_for('static', path='/css/styles.css') }}" rel="stylesheet">
+    <script src="{{ url_for('static', path='/js/websocket.js') }}"></script>
+  </head>
+  <body ontouchstart>
+    <div class="navigation">
+      <nav class="navbar">
+        <a class="navlink" href="/"><span>🏠</span></a>
+        <a class="navlink" href="/search"><span>🔭</span></a>
+        <a class="navlink" href="/archives"><span>🗄️</span></a>
+      </nav>
+    </div>
+    {% block content %}{% endblock %}
+  </body>
+</html>
