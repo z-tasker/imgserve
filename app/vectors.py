@@ -50,9 +50,9 @@ def get_experiment_metadata(
                 debug=debug,
             )
         ),
-        "timestamps": get_response_value(
+        "timestamps": set(ts[:10] for ts in get_response_value(
             elasticsearch_client=elasticsearch_client,
-            index="colorgrams",
+            index="raw-images",
             query={
                 "query": {
                     "bool": {"must": {"term": {"experiment_name": experiment_name}}}
@@ -61,7 +61,7 @@ def get_experiment_metadata(
             },
             value_keys=["aggregations", "dates", "buckets", "*", "key_as_string"],
             debug=debug,
-        ),
+        ))
     }
 
 

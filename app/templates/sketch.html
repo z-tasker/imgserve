@@ -12,9 +12,12 @@
       <div class="selector" id="selector-{{ i }}-{{ j }}">
         <form action="javascript:getImageFromFormWebsocket(action='get', values_from=['get', 'experiment'], img_target='colorgram', use_id='{{ i }}-{{ j }}')">
           <div class="custom-select">
-            <select id="experiment-{{ i }}-{{ j }}">
+            <select autocomplete="nope" id="experiment-{{ i }}-{{ j }}">
+              <option value="{{ default_experiment }}" selected>{{ default_experiment }}</option>
               {% for experiment_name in experiments.keys() %}
+              {% if default_experiment != experiment_name %}
               <option value="{{ experiment_name }}">{{ experiment_name }}</option>
+              {% endif %}
               {% endfor %}
             </select>
           </div>

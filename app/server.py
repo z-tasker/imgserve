@@ -12,7 +12,7 @@ from pathlib import Path
 import uvicorn
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, StreamingResponse
+from starlette.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from starlette.routing import Route, Mount, WebSocketRoute
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
@@ -76,9 +76,27 @@ async def home(request: Request):
     template = "home.html"
 
     experiments = get_experiments(ELASTICSEARCH_CLIENT)
+    results = [p.name for p in Path("static/img/colorgrams").glob("*")]
 
-    context = {"request": request, "experiments": experiments}
+    context = {"request": request, "experiments": experiments, "results": results}
     return templates.TemplateResponse(template, context)
+
+@app.route("/archive")
+async def archive(request: Request):
+    if "experiment" in request.query_params:
+        experiment = request.query_params["experiment"]
+        dl_link = get_raw_data_link(experiment)
+        if dl_link is None:
+            response = templates.TemplateResponse("404.html", {"request": request, "message": f"No download link available for {experiment}"})
+        else:
+            response = RedirectResponse(url=dl_link)
+    else:
+        template = "archive.html"
+        experiments = get_experiments(ELASTICSEARH_CLIENT)
+        context = {"request": request, "experiments": experiments}
+        response = templates.TemplateResponse(template, context)
+
+    return response
 
 
 @app.route("/search")
@@ -91,13 +109,20 @@ async def search(request: Request):
     return templates.TemplateResponse(template, context)
 
 
-@app.route("/get")
-async def get(request: Request):
-    template = "get.html"
+@app.route("/sketch")
+async def sketch(request: Request):
+
+    default_experiment = None
+    try:
+        default_experiment = request.query_params["default_experiment"]
+    except KeyError:
+        pass
+
+    template = "sketch.html"
 
     experiments = get_experiments(ELASTICSEARCH_CLIENT)
 
-    context = {"request": request, "experiments": experiments}
+    context = {"request": request, "default_experiment": default_experiment if default_experiment is not None else "concreteness", "experiments": experiments}
     return templates.TemplateResponse(template, context)
 
 async def valid_webhook_request(websocket: WebSocket, request: Dict[str, Any], required_keys: List[str]) -> bool:
@@ -160,76 +185,8 @@ async def experiments_listener(websocket: WebSocket):
             await websocket.send_json({"status": 404, "message": f"no action found for {request['action']}"})
 
 
-
-
-@app.route("/tesselation")
-async def tesselation(request: Request):
-    template = "pages.html"
-
-    experiment = request.query_params["experiment"]
-    x = request.query_params["x"]
-    y = request.query_params["y"]
-    z = request.query_params["z"]
-
-    all_colorgrams = [
-        p.stem for p in Path(f"static/img/colorgrams/{experiment}").glob("*")
-    ]
-
-    pages = defaultdict(set)
-    x_values = set()
-    y_values = set()
-
-    for colorgram_slug in all_colorgrams:
-        tags = colorgram_slug.split("|")
-        for tag in tags:
-            tag_key, tag_value = tag.split("=")
-            if tag_key == x:
-                x_values.add(tag_value)
-            elif tag_key == y:
-                y_values.add(tag_value)
-            elif tag_key == z:
-                pages[tag_key].add(tag_value)
-
-    # print(x_values)
-    # print(y_values)
-    # print(pages.values())
-
-    def get_colorgram_with(x_value: str, y_value: str, z_value: str) -> Optional[str]:
-        x_ident = f"{x}={x_value}"
-        y_ident = f"{y}={y_value}"
-        z_ident = f"{z}={z_value}"
-        # print(x_ident, y_ident, z_ident)
-        for colorgram_slug in all_colorgrams:
-            if (
-                x_ident in colorgram_slug
-                and y_ident in colorgram_slug
-                and z_ident in colorgram_slug
-            ):
-                return colorgram_slug
-
-    colorgram_pages = dict()
-    for page_key in pages[z]:
-        page = defaultdict(dict)
-        for x_value in x_values:
-            for y_value in y_values:
-                colorgram = get_colorgram_with(
-                    x_value=x_value, y_value=y_value, z_value=page_key
-                )
-                if colorgram is not None:
-                    page[x_value][y_value] = colorgram
-        colorgram_pages[page_key] = page
-    context = {
-        "experiment": experiment,
-        "request": request,
-        "x_values": x_values,
-        "colorgram_pages": colorgram_pages,
-    }
-
-    return templates.TemplateResponse(template, context)
-
-
 @app.route("/langip_grids_{langip_name}")
-async def generated(request: Request):
+async def langip_grids(request: Request):
     template = "langip.html"
 
     colorgrams = defaultdict(dict)
@@ -315,9 +272,9 @@ async def experiment_csv(request: Request) -> Response:
     return JSONResponse(response, status_code=status_code)
 
 
-@app.route("/{experiment}")
+@app.route("/results/{experiment}")
 async def generated(request: Request):
-    template = "index.html"
+    template = "results.html"
 
     colorgrams = defaultdict(dict)
     experiment = Path(request["path"]).name

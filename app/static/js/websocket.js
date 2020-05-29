@@ -35,6 +35,7 @@ function getImageFromFormWebsocket(action, values_from, img_target, use_id) {
         switch (data.status) {
             case 200:
                 img.src = "data:image/png;base64," + data.found.image_bytes;
+                hideForm("selector", use_id)
                 break;
             default:
                 img.src = "https://www.publicdomainpictures.net/pictures/280000/velka/not-found-image-15383864787lu.jpg";
