@@ -21,7 +21,7 @@ function getImageFromFormWebsocket(action, values_from, img_target, use_id) {
 
     values_from.forEach(addToRequest);
 
-    var websocket_address = "ws://localhost:8080/data";
+    var websocket_address = "wss://compsyn.fourtheye.xyz/data";
     var websocket = new WebSocket(websocket_address)
 
     websocket.onopen = function() {
