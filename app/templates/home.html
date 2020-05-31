@@ -1,18 +1,41 @@
-<html>
- <header>
-  <link rel="stylesheet" href="static/css/styles.css"/>
- </header>
- <body>
-  <div>
-    <h2 style="color: gray;">experiments</h2>
+{% extends "base.html" %}
+
+{% block content %}
+<main>
+  <div class ="cube">
+    <h2>experiments</h2>
+    <table>
+      <tr>
+        <td>name</td>
+        <td>colorgrams</td>
+        <td>raw images</td>
+        <td>dimensions</td>
+        <td>collected on</td>
+      </tr>
+      {% for experiment_name, experiment_info  in experiments.items() %}
+      <tr>
+        <td>
+          {{ experiment_name }}
+          <br>
+          <a href=/sketch?default_experiment={{ experiment_name }}>🗓</a>
+          <a href=/archive?experiment={{ experiment_name }}>🗄️</a>
+          <a href=/results/{{ experiment_name }}>results</a>
+        </td>
+        <td>{{ experiment_info["colorgrams"] }}</td>
+        <td>{{ experiment_info["raw-images"] }}</td>
+        <td>{{ ", ".join(experiment_info["dimensions"]) }}</td>
+        <td>{{ ", ".join(experiment_info["timestamps"]) }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <h2>results</h2>
     <ul>
-    {% for experiment in experiments %}
-    <br>
-    <div class="banner">
-    <li><a href="/{{ experiment }}">{{ experiment.replace("_", " ") }}</a></li>
+    {% for result in results %}
+    <div>
+      <li><a href="/results/{{ result }}">{{ result.replace("_", " ").replace("-", " ") }}</a></li>
     </div>
     {% endfor %}
     </ul>
   </div>
- </body>
-</html>
+</main>
+{% endblock %}

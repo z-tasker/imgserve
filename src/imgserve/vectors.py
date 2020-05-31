@@ -35,11 +35,13 @@ def get_vectors(
         if len(list(folder.iterdir())) == 0:
             raise NoDownloadsError(f"No downloaded images available at {folder}")
         vector = Vector(folder.name, downloads_path)
-        tags = str(folder.stem).split("|")
+        tags = str(folder.name).split("|")
         try:
             metadata = {key: value for key, value in (tag.split("=") for tag in tags)}
         except ValueError as e:
-            raise MalformedTagsError(f"Couldn't load metadata from colorgram stem: {tags}") from e
+            raise MalformedTagsError(
+                f"Couldn't load metadata from colorgram stem: {tags}"
+            ) from e
 
         metadata.update(
             {

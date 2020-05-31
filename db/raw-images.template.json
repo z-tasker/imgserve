@@ -34,6 +34,22 @@
       "part_of_speech": {
         "type": "keyword"
       },
+      "headers": {
+        "properties": {
+          "last_modified": {
+            "type": "date"
+          },
+          "content_type": {
+            "type": "keyword"
+          },
+          "content_size": {
+            "type": "long"
+          },
+          "server": {
+            "type": "keyword"
+          }
+        }
+      },
       "ipgeolocation" : {
         "properties" : {
           "continent_name" : {

@@ -8,35 +8,21 @@ from pathlib import Path
 from tqdm import tqdm
 
 from elasticsearch import Elasticsearch, helpers
-from elasticsearch_dsl import Search
 
-from .elasticsearch import RAW_IMAGES_INDEX_PATTERN
-from .errors import NoImagesInElasticsearchError
+from .elasticsearch import RAW_IMAGES_INDEX_PATTERN, all_field_values
+from .errors import NoImagesInElasticsearchError, NoQueriesGatheredError
 
 """
   Assemble image data
 """
 
 
-def all_field_values(
-    elasticsearch_client: Elasticsearch, field: str, query: Dict[str, Any]
-) -> Generator[str, None, None]:
-
-    s = Search(using=elasticsearch_client, index=RAW_IMAGES_INDEX_PATTERN)
-    agg = {"aggs": {"all_values": {"terms": {"field": field, "size": 100000}}}}
-    agg["query"] = query["query"]
-    s.update_from_dict(agg)
-    resp = s.execute()
-    unique_values = 0
-    for item in resp.aggregations.all_values.buckets:
-        yield item.key
-        unique_values += 1
-    logging.debug(f"{unique_values} unique values for {field}")
-
-
 def recursively_combine(
     field_values: Dict[str, List[str]], so_far: Optional[Dict[str, str]] = None
 ) -> List[Dict]:
+    """
+        create all possible queries to target each combination of field_values
+    """
     if so_far is None:
         so_far = list()
 
@@ -108,6 +94,10 @@ def assemble_downloads(
             f"Could not find any field values for {RAW_IMAGES_INDEX_PATTERN} matching the filter: {shared_filter}. Is the data indexed properly?"
         )
     queries = [(slug, query) for (slug, query) in recursively_combine(field_values)]
+    if len(queries) == 0:
+        raise NoQueriesGatheredError(
+            f"no queries could be generated for field values {field_values}!"
+        )
     image_directories = defaultdict(list)
     for slug, query in queries:
         query["query"]["bool"]["filter"].append(shared_filter)

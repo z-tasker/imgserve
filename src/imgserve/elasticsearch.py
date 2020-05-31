@@ -1,18 +1,39 @@
 from __future__ import annotations
+import copy
 import json
 from pathlib import Path
 
 import elasticsearch
+from elasticsearch_dsl import Search
 from retry import retry
 
-from .errors import ElasticsearchUnreachableError, ElasticsearchNotReadyError, MissingTemplateError
+from .errors import (
+    ElasticsearchUnreachableError,
+    ElasticsearchNotReadyError,
+    MissingTemplateError,
+)
 from .logger import simple_logger
+from .utils import recurse_splat_key
 
 log = simple_logger("imgserve.elasticsearch")
 
 
 COLORGRAMS_INDEX_PATTERN = "colorgrams"
 RAW_IMAGES_INDEX_PATTERN = "raw-images"
+
+
+def _overridable_template_paths() -> Dict[str, Any]:
+    template_paths = dict()
+    for index in ["colorgrams", "raw-images", "hosts"]:
+        template = json.loads(
+            Path(__file__).parents[2].joinpath(f"db/{index}.template.json").read_text()
+        )
+        assert (
+            len(template) > 0
+        ), f"the index template 'db/{index}.template.json' must exist"
+        template_paths.update({index: template})
+
+    return template_paths
 
 
 def check_elasticsearch(
@@ -31,20 +52,6 @@ def check_elasticsearch(
         raise ElasticsearchUnreachableError(
             f"while attempting to connect to {elasticsearch_fqdn}:{elasticsearch_port}"
         ) from e
-
-
-def _overridable_template_paths() -> Dict[str, Any]:
-    template_paths = dict()
-    for index in ["colorgrams", "raw-images", "hosts"]:
-        template = json.loads(
-            Path(__file__).parents[2].joinpath(f"db/{index}.template.json").read_text()
-        )
-        assert (
-            len(template) > 0
-        ), f"the index template 'db/{index}.template.json' must exist"
-        template_paths.update({index: template})
-
-    return template_paths
 
 
 @retry(tries=3, backoff=5, delay=2)
@@ -121,6 +128,16 @@ def doc_gen(
     )
 
 
+def fields_in_hits(hits: Iterator[Dict[str, Any]]) -> List[str]:
+
+    fields = set()
+    for hit in hits:
+        for field in hit["_source"].keys():
+            fields.add(field)
+
+    return list(fields)
+
+
 @retry(tries=3, backoff=5, delay=2)
 def index_to_elasticsearch(
     elasticsearch_client: Elasticsearch,
@@ -147,3 +164,45 @@ def index_to_elasticsearch(
     )
 
     log.info("bulk indexing complete")
+
+
+@retry(tries=3, backoff=5, delay=2)
+def all_field_values(
+    elasticsearch_client: Elasticsearch, field: str, query: Dict[str, Any]
+) -> Generator[str, None, None]:
+
+    s = Search(using=elasticsearch_client, index=RAW_IMAGES_INDEX_PATTERN)
+    agg = {"aggs": {"all_values": {"terms": {"field": field, "size": 100000}}}}
+    agg["query"] = query["query"]
+    s.update_from_dict(agg)
+    resp = s.execute()
+    unique_values = 0
+    for item in resp.aggregations.all_values.buckets:
+        yield item.key
+        unique_values += 1
+    log.debug(f"{unique_values} unique values for {field}")
+
+
+@retry(tries=3, backoff=5, delay=2)
+def get_response_value(
+    elasticsearch_client: Elasticsearch,
+    index: str,
+    query: Dict[str, Any],
+    value_keys: List[str],
+    size: int = 0,
+    debug: bool = False,
+) -> Any:
+    resp = elasticsearch_client.search(index=index, body=query, size=size)
+
+    log.info(f"retrieving value from query against {index} at {value_keys}")
+    if debug:
+        print(f"GET /{index}/_search?size={size}\n{json.dumps(query,indent=2)}")
+
+    values = [value for value in recurse_splat_key(resp, value_keys)]
+
+    if len(values) == 0:
+        values = None
+    elif len(values) == 1:
+        values = values[0]
+
+    return values

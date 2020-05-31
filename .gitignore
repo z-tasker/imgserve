@@ -4,6 +4,7 @@ static/img/colorgrams
 dropbox-links
 app/static/img/colorgrams
 app/static/csv/experiments
+app/static/data
 *.swp
 *.egg-info
 __pycache__

@@ -62,6 +62,9 @@ def get_s3_args(
     s3_parser = parser.add_argument_group("s3")
 
     s3_parser.add_argument(
+        "--s3-bucket", required=True, help="bucket where img data is stored in S3",
+    )
+    s3_parser.add_argument(
         "--s3-region-name",
         type=str,
         default=os.getenv("AWS_REGION_NAME", None),
@@ -125,6 +128,36 @@ def get_experiment_args(
         action="store_true",
         help="Share IP address information of this host to Elasticsearch, to facilitate analysis of global search results",
     )
+    mode.add_argument(
+        "--delete",
+        action="store_true",
+        help="Delete data associated with this experiment name",
+    )
+    mode.add_argument(
+        "--get",
+        type=str,
+        help="Get and display colorgram for the provided query term from this experiment name",
+    )
+    mode.add_argument(
+        "--pull",
+        action="store_true",
+        help="Pull colorgrams associated with this experiment name",
+    )
+    mode.add_argument(
+        "--from-archive-path",
+        type=Path,
+        help="Load raw-images from an expanded archive",
+    )
+    mode.add_argument(
+        "--label",
+        action="store_true",
+        help="Label a folder of colorgrams where filename == s3_key according to --dimensions, must include args --unlabeled-data-path and --label-write-path",
+    )
+    mode.add_argument(
+        "--export-vectors-to",
+        type=Path,
+        help="export colorgram documents as a JSON list",
+    )
 
     experiment_parser.add_argument(
         "--trial-ids",
@@ -168,9 +201,6 @@ def get_experiment_args(
         help="Take no action, but show what would happen",
     )
     experiment_parser.add_argument(
-        "--s3-bucket", required=True, help="bucket where img data is stored in S3",
-    )
-    experiment_parser.add_argument(
         "--force-remote-pull",
         default=False,
         help="Pull images from S3 even if they are already on disk",
@@ -185,6 +215,19 @@ def get_experiment_args(
         "--overwrite",
         action="store_true",
         help="overwrite existing assets: colorgram images in S3 and documents in Elasticsearch",
+    )
+    experiment_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="provide additional output to help debug queries, etc",
+    )
+    experiment_parser.add_argument(
+        "--unlabeled-data-path",
+        type=Path,
+        help="folder of colorgrams with filename as s3_key",
+    )
+    experiment_parser.add_argument(
+        "--label-write-path", type=Path, help="folder to write labeled colorgrams to"
     )
 
     return parser

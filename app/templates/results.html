@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main>
+  <div class="gallery">
+    {% for query in queries %}
+      <div class="column">
+        {{ query }}
+	<br>
+        {% for file_name, description in colorgrams[query].items() %}
+        <div class="colorgram">
+          <a>
+              <img src="/static/img/colorgrams/{{ experiment }}/{{ file_name }}.png">
+	      <p>{{ description }}</p>
+	  </a>
+        </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}

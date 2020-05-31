@@ -1,3 +1,7 @@
+class AmbiguousDataError(Exception):
+    pass
+
+
 class APIError(Exception):
     pass
 
@@ -43,4 +47,8 @@ class ElasticsearchNotReadyError(ElasticsearchError):
 
 
 class MissingTemplateError(ElasticsearchError):
+    pass
+
+
+class NoQueriesGatheredError(Exception):
     pass

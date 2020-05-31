@@ -8,22 +8,42 @@ body{
 	width:100%;
 	margin-bottom: 20px;
 }
+
+a.navlink {
+  text-decoration: none;
+  padding: 5px;
+  border: 2px solid gray;
+  color: white;
+}
+
+a.navlink {
+  text-decoration: none;
+  padding: 5px;
+  border: 2px solid gray;
+}
+
 .banner a {
-	margin-left: 0.5em;
-	text-decoration: none;
-	padding:5px;
-	background-color: gray;
-	border-top: 5px;
-	border-color: white;
+  text-decoration: none;
+  padding:5px;
+  background-color: gray;
+  border-top: 5px;
+  border-color: white;
+  float:left;
 }
 
 .banner a:visited {
     color: black;
 }
 
+.cube a {
+  text-decoration: none;
+  margin: auto;
+  color: white;
+}
+
 .cube {
-    color: yellow;
-    max-width: 50%;
+    color: gray;
+    max-width: 80%;
     max-height: 50%;
 }
 
@@ -67,7 +87,46 @@ body{
     color: gray;
 }
 
+.column button:hover {
+    color: white;
+    background-color: green;
+    border-color: green;
+}
+
+.selector input, select, button {
+  background-color: black;
+  color: gray;
+  display: block;
+  background-position: 10px 10px;
+  background-repeat: no-repeat;
+  border: 2px solid #555;
+  width: 80%;
+  margin: auto;
+}
+
+.selector input[type=text]:focus {
+  border: 2px solid green;
+}
+
 .colorgram {
     margin: 5px;
 }
 
+table {
+  white-space: normal;
+  width: 100%;
+}
+
+table, th, td {
+  border: 1px solid gray;
+}
+
+table, th, td {
+  color: green;
+}
+
+.custom-select select {
+    -moz-appearance:none; /* Firefox */
+    -webkit-appearance:none; /* Safari and Chrome */
+    appearance:none;
+}

@@ -1,13 +1,297 @@
 from __future__ import annotations
+import copy
 import json
 import requests
+from dataclasses import dataclass
+from pathlib import Path
 
-from .errors import APIError, MissingCredentialsError, UnexpectedStatusCodeError
+from elasticsearch import helpers
+
+from .elasticsearch import (
+    RAW_IMAGES_INDEX_PATTERN,
+    COLORGRAMS_INDEX_PATTERN,
+    get_response_value,
+)
+from .errors import (
+    AmbiguousDataError,
+    APIError,
+    MissingCredentialsError,
+    UnexpectedStatusCodeError,
+    NoImagesInElasticsearchError,
+)
 from .logger import simple_logger
+from .s3 import get_s3_bytes
+
+
+class RawImageDocument:
+    def __init__(self, doc: Dict[str, Any]) -> None:
+        self.doc = doc
+        self.source = self.doc["_source"]
+        self.path = (
+            Path("data")
+            .joinpath(self.source["trial_id"])
+            .joinpath(self.source["hostname"])
+            .joinpath(self.source["query"].replace(" ", "_"))
+            .joinpath(self.source["trial_timestamp"])
+            .joinpath("images")
+            .joinpath(self.source["image_id"])
+            .with_suffix(".jpg")
+        )
+
+
+class ColorgramDocument:
+    def __init__(self, doc: Dict[str, Any]) -> None:
+        self.doc = doc
+        self.source = self.doc["_source"]
+        self.path = Path(self.source["experiment_name"]).joinpath(self.source["s3_key"])
+
+
+@dataclass
+class Experiment:
+    bucket_name: str
+    elasticsearch_client: Elasticsearch
+    local_data_store: Path
+    name: str
+    s3_client: botocore.client.s3
+    query: Optional[Dict[str, Any]] = None
+    dry_run: bool = False
+    debug: bool = False
+
+    def __post_init__(self) -> None:
+        if self.query is None:
+            self.query = {
+                "query": {
+                    "bool": {"filter": [{"term": {"experiment_name": self.name}}]}
+                }
+            }
+        self.log = simple_logger(
+            f"imgserve.{self.name}" + (f".DRY_RUN" if self.dry_run else "")
+        )
+        self.log.info(f"initialized")
+
+    def _sync_s3_path(self, path: Path) -> Path:
+        local_path = self.local_data_store.joinpath(path)
+        if not local_path.is_file():
+            local_path.parent.mkdir(exist_ok=True, parents=True)
+            local_path.write_bytes(
+                get_s3_bytes(
+                    s3_client=self.s3_client, bucket_name=self.bucket_name, s3_path=path
+                )
+            )
+            self.log.info(f"downloaded {path} from S3")
+        return local_path
+
+    def _delete_s3_object(self, s3_path: Path) -> None:
+        self.s3_client.delete_object(Bucket=self.bucket_name, Key=str(s3_path))
+
+    @property
+    def raw_images(self) -> Generator[RawImageDocument]:
+        yielded = 0
+        for doc in helpers.scan(
+            self.elasticsearch_client, index=RAW_IMAGES_INDEX_PATTERN, query=self.query
+        ):
+            raw_image_document = RawImageDocument(doc)
+            yield raw_image_document
+
+    @property
+    def colorgrams(self) -> Generator[ColorgramDocuments]:
+        for doc in helpers.scan(
+            self.elasticsearch_client, index=COLORGRAMS_INDEX_PATTERN, query=self.query,
+        ):
+            colorgram_document = ColorgramDocument(doc)
+            yield colorgram_document
+
+    def get(self, word: str) -> Generator[Tuple[Dict[str, Any], Path], None, None]:
+        """
+            Get all images associated with a given word for this experiment
+        """
+        docs = get_response_value(
+            elasticsearch_client=self.elasticsearch_client,
+            index="colorgrams",
+            query={
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"query": word}},
+                            {"term": {"experiment_name": self.name}},
+                        ]
+                    }
+                }
+            },
+            value_keys=["hits", "hits"],
+            size=100,
+            debug=self.debug,
+        )
+        if len(docs) == 0:
+            raise FileNotFoundError(f"No colorgram for {word} from {self.name} found!")
+        if len(docs) > 1:
+            self.log.info(f"more than one colorgram for {word}")
+
+        for doc in docs:
+            yield (doc, self._sync_s3_path(ColorgramDocument(doc).path))
+
+    def delete(self) -> None:
+        self.log.info(f"deleting raw-images from S3...")
+        deleted = 0
+        for raw_image_document in self.raw_images:
+            if not self.dry_run:
+                try:
+                    self._delete_s3_object(raw_image_document.path)
+                except self.s3_client.exceptions.NoSuchKey:
+                    deleted -= 1
+            deleted += 1
+            if raw_image_document.path.is_file():
+                raw_image_document.path.unlink()
+        self.log.info(f"deleted {deleted} raw images from s3")
+
+        self.log.info(f"deleting colorgrams from S3...")
+        deleted = 0
+        for colorgram_document in self.colorgrams:
+            if not self.dry_run:
+                try:
+                    self._delete_s3_object(colorgram_document.path)
+                except self.s3_client.exceptions.NoSuchKey:
+                    deleted -= 1
+            deleted += 1
+            if colorgram_document.path.is_file():
+                colorgram_document.path.unlink()
+        self.log.info(f"deleted {deleted} colorgrams from s3")
+
+        self.log.info(f"deleting documents from elasticsearch...")
+        delete_query = copy.deepcopy(self.query)
+
+        if not self.dry_run:
+            resp = self.elasticsearch_client.delete_by_query(
+                index="_all", body=delete_query
+            )
+            self.log.info(resp)
+        else:
+            delete_query.update(
+                {"aggs": {"count": {"value_count": {"field": "query"}}}}
+            )
+            would_delete = get_response_value(
+                elasticsearch_client=self.elasticsearch_client,
+                index="_all",
+                query=delete_query,
+                value_keys=["aggregations", "count", "value"],
+                debug=self.debug,
+            )
+            self.log.info(f"would delete {would_delete} documents from elasticsearch")
+
+    def label(
+        self,
+        unlabeled_data_path: Path,
+        label_write_path: Path,
+        pivot_field: str,
+        include_fields: List[str],
+    ) -> None:
+        for cg_path in unlabeled_data_path.iterdir():
+            if not cg_path.is_file():
+                continue
+
+            cg_s3_key = cg_path.stem
+            pivot_value = get_response_value(
+                elasticsearch_client=self.elasticsearch_client,
+                index=COLORGRAMS_INDEX_PATTERN,
+                query={
+                    "query": {
+                        "bool": {
+                            "filter": [
+                                {"term": {"s3_key": cg_s3_key}},
+                                {"term": {"experiment_name": self.name}},
+                            ]
+                        }
+                    },
+                    "aggs": {
+                        pivot_field: {"terms": {"field": pivot_field + ".keyword"}}
+                    },
+                },
+                value_keys=["aggregations", pivot_field, "buckets", "*", "key"],
+                size=100,
+                debug=self.debug,
+            )
+
+            if isinstance(pivot_value, list):
+                raise AmbiguousDataError(
+                    f"more than 1 pivot value for {pivot_field} for colorgram with s3_key: {cg_s3_key}, {pivot_value}"
+                )
+
+            # aggregation of values of include_fields, should be only 1 for each, otherwise complain the pivot field does not cleanly divide across the dimensions requested
+            aggregations = get_response_value(
+                elasticsearch_client=self.elasticsearch_client,
+                index=RAW_IMAGES_INDEX_PATTERN,
+                query={
+                    "query": {
+                        "bool": {
+                            "filter": [
+                                {"term": {pivot_field: pivot_value}},
+                                {"term": {"experiment_name": self.name}},
+                            ]
+                        }
+                    },
+                    "aggs": {
+                        include_field: {"terms": {"field": include_field}}
+                        for include_field in include_fields
+                    },
+                },
+                value_keys=["aggregations"],
+                size=100,
+                debug=self.debug,
+            )
+
+            labels = dict()
+            for aggregation_name, aggregation in aggregations.items():
+                if len(aggregation["buckets"]) == 0:
+                    raise NoImagesInElasticsearchError(
+                        f"{aggregation_name}: {aggregation} had no buckets!"
+                    )
+                elif len(aggregation["buckets"]) > 1:
+                    raise AmbiguousDataError(
+                        f"{aggregation_name} returned more than 1 bucket: {aggregation}"
+                    )
+                else:
+                    try:
+                        label = {aggregation_name: aggregation["buckets"][0]["key"]}
+                    except KeyError as e:
+                        raise AmbiguousDataError(
+                            f"could not resolve key from single bucket: {aggregation}"
+                        )
+                    labels.update(label)
+
+            label_filename = Path(
+                "|".join([f"{key}={val}" for key, val in sorted(labels.items())])
+            ).with_suffix(".png")
+
+            label_write_path.joinpath(label_filename).write_bytes(cg_path.read_bytes())
+            self.log.info(f"labeled colorgram {label_filename}")
+
+    def pull(self, pull_raw_images: bool = False) -> None:
+        self.log.info(
+            "pulling colorgrams" + (" and raw-images" if pull_raw_images else "")
+        )
+        pulled_colorgrams = 0
+        for colorgram_document in self.colorgrams:
+            if not self.dry_run:
+                self._sync_s3_path(colorgram_document.path)
+            pulled_colorgrams += 1
+        self.log.info(
+            f"pulled {pulled_colorgrams} colorgrams to {self.local_data_store}"
+        )
+
+        if pull_raw_images:
+            pulled_raw_images = 0
+            for raw_image_document in self.raw_images:
+                if not self.dry_run:
+                    self._sync_s3_path(raw_image_document.path)
+                pulled_raw_images += 1
+            self.log.info(
+                f"pulled {pulled_raw_images} raw images to {self.local_data_store}"
+            )
 
 
 class ImgServe:
     def __init__(self, remote_url: str, username: str = "", password: str = "") -> None:
+
         local = remote_url.startswith("http://localhost")
         if not local:
             if username == "" or password == "":

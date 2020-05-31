@@ -32,6 +32,9 @@
       },
       "trial_timestamp" : {
         "type" : "date"
+      },
+      "query": {
+        "type": "keyword"
       }
     }
   }

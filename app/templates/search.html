@@ -3,44 +3,150 @@
   <link rel="stylesheet" href="static/css/styles.css"/>
  </header>
  <body>
-  <div>
-    <div class="cube">
-      <img src="{{ url_for('static', path='/img/cube.png') }}">
-      <div class="column">
-      <br>
-      <form action="/tesselation" id="tesselateform" method="get">
-	<label for="experiment">experiment:</label>
-	<select name="experiment" id="experiment">
-	  {% for experiment in experiments %}
-	  <option value="{{ experiment }}">{{ experiment }}</option>
-	  {% endfor %}
-        </select>
-	<br>
-        <label for="x">x:</label>
-        <select name="x" id="x">
-          {% for x_value in x_values %}
-          <option value="{{ x_value }}">{{ x_value }}</option>
-          {% endfor %}
-        </select>
-        <br>
-        <label for="y">y:</label>
-        <select name="y" id="y">
-          {% for y_value in y_values %}
-          <option value="{{ y_value }}">{{ y_value }}</option>
-          {% endfor %}
-        </select>
-        <br>
-        <label for="z">z:</label>
-        <select name="z" id="z">
-          {% for z_value in z_values %}
-          <option value="{{ z_value }}">{{ z_value }}</option>
-          {% endfor %}
-        </select>
-	<br>
-        <input type="submit">
-      </form>
-      </div>
+  <div class ="cube">
+    <img src="{{ url_for('static', path='/img/cube.png') }}">
+    <div class="banner">
+    <form action="/tesselation" id="tesselateform" method="get">
+    <label for="experiment">experiment:</label>
+    <select name="experiment_name" id="experiment_name">
+      {% for experiment_name in experiments.keys() %}
+      <option value="{{ experiment_name }}">{{ experiment_name }}</option>
+      {% endfor %}
+    </select>
+    <br>
+    <label for="x">x:</label>
+    <select name="x" id="x">
+    </select>
+    <br>
+    <label for="y">y:</label>
+    <select name="y" id="y">
+    </select>
+    <br>
+    <label for="z">z:</label>
+    <select name="z" id="z">
+    </select>
     </div>
+    <br>
+    <input type="submit">
   </div>
  </body>
+<script type="text/javascript">
+var experiments = {{ experiments | tojson }}
+
+// removes all option elements in select box
+// removeGrp (optional) boolean to remove optgroups
+function removeAllOptions(sel, removeGrp) {
+    var len, groups, par;
+    if (removeGrp) {
+        groups = sel.getElementsByTagName('optgroup');
+        len = groups.length;
+        for (var i=len; i; i--) {
+            sel.removeChild( groups[i-1] );
+        }
+    }
+
+    len = sel.options.length;
+    for (var i=len; i; i--) {
+        par = sel.options[i-1].parentNode;
+        par.removeChild( sel.options[i-1] );
+    }
+}
+
+function appendDataToSelect(sel, obj) {
+    var f = document.createDocumentFragment();
+    var labels = [], group, opts;
+
+    function addOptions(obj) {
+        var f = document.createDocumentFragment();
+        var o;
+
+        for (var i=0, len=obj.dimensions.length; i<len; i++) {
+            o = document.createElement('option');
+            o.appendChild( document.createTextNode( obj.dimensions[i] ) );
+
+            if ( obj.value ) {
+                o.value = obj.value[i];
+            }
+
+            f.appendChild(o);
+        }
+        return f;
+    }
+
+    if ( obj.dimensions ) {
+        opts = addOptions(obj);
+        f.appendChild(opts);
+    } else {
+        for ( var prop in obj ) {
+            if ( obj.hasOwnProperty(prop) ) {
+                labels.push(prop);
+            }
+        }
+
+        for (var i=0, len=labels.length; i<len; i++) {
+            group = document.createElement('optgroup');
+            group.label = labels[i];
+            f.appendChild(group);
+            opts = addOptions(obj[ labels[i] ] );
+            group.appendChild(opts);
+        }
+    }
+    sel.appendChild(f);
+}
+
+// anonymous function assigned to onchange event of controlling select box
+document.forms['tesselateform'].elements['experiment_name'].onchange = function(e) {
+    // name of associated select box
+    var XrelName = 'x';
+    var XrelList = this.form.elements[ XrelName ];
+    var YrelName = 'y';
+    var YrelList = this.form.elements[ YrelName ];
+    var ZrelName = 'z';
+    var ZrelList = this.form.elements[ ZrelName ];
+
+    // get data from object literal based on selection in controlling select box (this.value)
+    var obj = experiments[ this.value ];
+
+    // remove current option elements
+    removeAllOptions(XrelList, true);
+    removeAllOptions(YrelList, true);
+    removeAllOptions(ZrelList, true);
+
+    // call function to add optgroup/option elements
+    // pass reference to associated select box and data for new options
+    appendDataToSelect(XrelList, obj);
+    appendDataToSelect(YrelList, obj);
+    appendDataToSelect(ZrelList, obj);
+};
+
+
+// populate associated select box as page loads
+(function() { // immediate function to avoid globals
+
+    var form = document.forms['tesselateform'];
+
+    // reference to controlling select box
+    var sel = form.elements['experiment_name'];
+    sel.selectedIndex = 0;
+
+    // name of associated select box
+    var XrelName = 'x';
+    var Xrel = form.elements[ XrelName ];
+    var YrelName = 'y';
+    var Yrel = form.elements[ YrelName ];
+    var ZrelName = 'z';
+    var Zrel = form.elements[ ZrelName ];
+
+    // get data for associated select box passing its name
+    // and value of selected in controlling select box
+    var data = experiments[ sel.value ];
+
+    // add options to associated select box
+    appendDataToSelect(Xrel, data);
+    appendDataToSelect(Yrel, data);
+    appendDataToSelect(Zrel, data);
+
+}());
+  
+</script>
 </html>

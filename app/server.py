@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import base64
+import copy
 import csv
 import os
 import json
@@ -10,7 +13,12 @@ from pathlib import Path
 import uvicorn
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, StreamingResponse
+from starlette.responses import (
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+    RedirectResponse,
+)
 from starlette.routing import Route, Mount, WebSocketRoute
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
@@ -20,6 +28,11 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 from imgserve import get_experiment_csv_path, STATIC, LOCAL_DATA_STORE
+from imgserve.api import Experiment
+from imgserve.args import get_elasticsearch_args, get_s3_args
+from imgserve.clients import get_clients
+
+from vectors import get_experiments
 
 middleware = [
     Middleware(
@@ -64,83 +77,152 @@ async def open_experiment_csv(csv_path: Path) -> Dict[str, Dict[str, Any]]:
     return unique_queries
 
 
+async def respond_with_404(request: Request, message: str):
+    response = templates.TemplateResponse(
+        "404.html", {"request": request, "message": message,},
+    )
+    return response
+
+
 @app.route("/")
 async def home(request: Request):
     template = "home.html"
 
-    experiments = [p.name for p in Path("static/img/colorgrams").glob("*")]
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
+    results = [p.name for p in Path("static/img/colorgrams").glob("*")]
+
+    context = {"request": request, "experiments": experiments, "results": results}
+    return templates.TemplateResponse(template, context)
+
+
+@app.route("/archive")
+async def archive(request: Request):
+    if "experiment" in request.query_params:
+        experiment = request.query_params["experiment"]
+        dl_link = get_raw_data_link(experiment)
+        if dl_link is None:
+            response = await respond_with_404(
+                request=request, message=f"No download link available for {experiment}"
+            )
+        else:
+            response = RedirectResponse(url=dl_link)
+    else:
+        template = "archive.html"
+        experiments = get_experiments(ELASTICSEARH_CLIENT)
+        context = {"request": request, "experiments": experiments}
+        response = templates.TemplateResponse(template, context)
+
+    return response
+
+
+@app.route("/search")
+async def search(request: Request):
+    template = "search.html"
+
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
+
     context = {"request": request, "experiments": experiments}
     return templates.TemplateResponse(template, context)
 
 
-@app.route("/tesselation")
-async def tesselation(request: Request):
-    template = "pages.html"
+@app.route("/sketch")
+async def sketch(request: Request):
 
-    experiment = request.query_params["experiment"]
-    x = request.query_params["x"]
-    y = request.query_params["y"]
-    z = request.query_params["z"]
+    default_experiment = None
+    try:
+        default_experiment = request.query_params["default_experiment"]
+    except KeyError:
+        pass
 
-    all_colorgrams = [
-        p.stem for p in Path(f"static/img/colorgrams/{experiment}").glob("*")
-    ]
+    template = "sketch.html"
 
-    pages = defaultdict(set)
-    x_values = set()
-    y_values = set()
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
 
-    for colorgram_slug in all_colorgrams:
-        tags = colorgram_slug.split("|")
-        for tag in tags:
-            tag_key, tag_value = tag.split("=")
-            if tag_key == x:
-                x_values.add(tag_value)
-            elif tag_key == y:
-                y_values.add(tag_value)
-            elif tag_key == z:
-                pages[tag_key].add(tag_value)
-
-    # print(x_values)
-    # print(y_values)
-    # print(pages.values())
-
-    def get_colorgram_with(x_value: str, y_value: str, z_value: str) -> Optional[str]:
-        x_ident = f"{x}={x_value}"
-        y_ident = f"{y}={y_value}"
-        z_ident = f"{z}={z_value}"
-        # print(x_ident, y_ident, z_ident)
-        for colorgram_slug in all_colorgrams:
-            if (
-                x_ident in colorgram_slug
-                and y_ident in colorgram_slug
-                and z_ident in colorgram_slug
-            ):
-                return colorgram_slug
-
-    colorgram_pages = dict()
-    for page_key in pages[z]:
-        page = defaultdict(dict)
-        for x_value in x_values:
-            for y_value in y_values:
-                colorgram = get_colorgram_with(
-                    x_value=x_value, y_value=y_value, z_value=page_key
-                )
-                if colorgram is not None:
-                    page[x_value][y_value] = colorgram
-        colorgram_pages[page_key] = page
     context = {
-        "experiment": experiment,
         "request": request,
-        "x_values": x_values,
-        "colorgram_pages": colorgram_pages,
+        "default_experiment": default_experiment
+        if default_experiment is not None
+        else "concreteness",
+        "experiments": experiments,
     }
-
     return templates.TemplateResponse(template, context)
 
 
+async def valid_webhook_request(
+    websocket: WebSocket, request: Dict[str, Any], required_keys: List[str]
+) -> bool:
+    valid = True
+    missing = list()
+    for required_key in required_keys:
+        if required_key not in request:
+            valid = False
+            missing.append(required_key)
+
+    if not valid:
+        await websocket.send_json(
+            {"status": 400, "message": "missing required keys", "missing": missing}
+        )
+    return valid
+
+
+@app.websocket_route("/data")
+async def experiments_listener(websocket: WebSocket):
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
+
+    await websocket.accept()
+    request = await websocket.receive_json()
+
+    if valid_webhook_request(websocket, request, ["action"]):
+        if request["action"] == "get":
+            if valid_webhook_request(
+                websocket, request, required_keys=["experiment", "get"]
+            ):
+                experiment = Experiment(
+                    bucket_name=S3_BUCKET,
+                    elasticsearch_client=ELASTICSEARCH_CLIENT,
+                    local_data_store=Path("static/data"),
+                    name=request["experiment"],
+                    s3_client=S3_CLIENT,
+                )
+                try:
+                    found = [
+                        {
+                            "doc": doc,
+                            "image_bytes": base64.b64encode(
+                                img_path.read_bytes()
+                            ).decode("utf-8"),
+                        }
+                        for doc, img_path in experiment.get(request["get"])
+                    ]
+                except FileNotFoundError as e:
+                    log.info(f"no match for get {e}")
+                    await websocket.send_json(
+                        {
+                            "status": 404,
+                            "message": "no colorgram for search term",
+                            "query": request["get"],
+                        }
+                    )
+                    return
+
+                resp = {"status": 200, "found": found[0]}
+                clean_resp = copy.deepcopy(resp)
+                del clean_resp["found"]["doc"]["_source"]["downloads"]
+                del clean_resp["found"]["image_bytes"]
+                log.info(f"sending JSON response through websocket: {clean_resp}")
+                await websocket.send_json(resp)
+        elif request["action"] == "list_experiments":
+            await websocket.send_json(
+                {"status": 200, "experiments": list(experiments.keys())}
+            )
+        else:
+            await websocket.send_json(
+                {"status": 404, "message": f"no action found for {request['action']}"}
+            )
+
+
 @app.route("/langip_grids_{langip_name}")
-async def generated(request: Request):
+async def langip_grids(request: Request):
     template = "langip.html"
 
     colorgrams = defaultdict(dict)
@@ -226,20 +308,24 @@ async def experiment_csv(request: Request) -> Response:
     return JSONResponse(response, status_code=status_code)
 
 
-@app.route("/{experiment}")
+@app.route("/results/{experiment}")
 async def generated(request: Request):
-    template = "index.html"
+    template = "results.html"
 
     colorgrams = defaultdict(dict)
     experiment = Path(request["path"]).name
-    all_colorgrams = sorted(
-        [
-            f.stem
-            for f in Path(__file__)
-            .parent.joinpath(f"static/img/colorgrams/{experiment}")
-            .iterdir()
-        ]
-    )
+    try:
+        all_colorgrams = sorted(
+            [
+                f.stem
+                for f in Path(__file__)
+                .parent.joinpath(f"static/img/colorgrams/{experiment}")
+                .iterdir()
+            ]
+        )
+    except FileNotFoundError as e:
+        return await respond_with_404(request=request, message=str(e))
+
     for cg in all_colorgrams:
         dimensions = {dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|")}
         colorgrams[dimensions["query"]][cg] = ", ".join(
@@ -259,4 +345,17 @@ async def generated(request: Request):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+
+    get_elasticsearch_args(parser)
+    get_s3_args(parser)
+
+    args = parser.parse_args()
+
+    global ELASTICSEARCH_CLIENT
+    global S3_BUCKET
+    global S3_CLIENT
+    ELASTICSEARCH_CLIENT, S3_CLIENT = get_clients(args)
+    S3_BUCKET = args.s3_bucket
+
     uvicorn.run(app, host="127.0.0.1", port=8080)

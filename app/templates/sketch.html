@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main>
+  <div class="gallery">
+    {% for i in range(5) %}
+    <div class="column">
+      {% for j in range(5) %}
+      <h4 id="label-{{ i }}-{{ j }}"></h4>
+      <div class="colorgram"><img id="colorgram-{{ i }}-{{ j }}"></div>
+      <button id="hide-{{ i }}-{{ j }}" onclick="javascript:hideForm(target='selector', use_id='{{ i }}-{{ j }}')">hide</button>
+      <div class="selector" id="selector-{{ i }}-{{ j }}">
+        <form action="javascript:getImageFromFormWebsocket(action='get', values_from=['get', 'experiment'], img_target='colorgram', use_id='{{ i }}-{{ j }}')">
+          <div class="custom-select">
+            <select autocomplete="nope" id="experiment-{{ i }}-{{ j }}">
+              <option value="{{ default_experiment }}" selected>{{ default_experiment }}</option>
+              {% for experiment_name in experiments.keys() %}
+              {% if default_experiment != experiment_name %}
+              <option value="{{ experiment_name }}">{{ experiment_name }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <input id="get-{{ i }}-{{ j }}" type="text" autofocus autocomplete="off" placeholder="search...">
+          <button type="submit" value="Submit">Submit</button>
+        </form> 
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}
