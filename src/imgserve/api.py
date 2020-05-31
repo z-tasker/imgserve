@@ -12,7 +12,13 @@ from .elasticsearch import (
     COLORGRAMS_INDEX_PATTERN,
     get_response_value,
 )
-from .errors import APIError, MissingCredentialsError, UnexpectedStatusCodeError
+from .errors import (
+    AmbiguousDataError,
+    APIError,
+    MissingCredentialsError,
+    UnexpectedStatusCodeError,
+    NoImagesInElasticsearchError,
+)
 from .logger import simple_logger
 from .s3 import get_s3_bytes
 
@@ -72,6 +78,7 @@ class Experiment:
                     s3_client=self.s3_client, bucket_name=self.bucket_name, s3_path=path
                 )
             )
+            self.log.info(f"downloaded {path} from S3")
         return local_path
 
     def _delete_s3_object(self, s3_path: Path) -> None:
@@ -101,21 +108,27 @@ class Experiment:
         docs = get_response_value(
             elasticsearch_client=self.elasticsearch_client,
             index="colorgrams",
-            query={"query": {"bool": { "filter": [{"term": {"query": word }}, {"term": {"experiment_name": self.name}}]}}},
+            query={
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"query": word}},
+                            {"term": {"experiment_name": self.name}},
+                        ]
+                    }
+                }
+            },
             value_keys=["hits", "hits"],
             size=100,
-            debug=self.debug
+            debug=self.debug,
         )
         if len(docs) == 0:
-            raise FileNotFoundError(
-                f"No colorgram for {word} from {self.name} found!"
-            )
+            raise FileNotFoundError(f"No colorgram for {word} from {self.name} found!")
         if len(docs) > 1:
             self.log.info(f"more than one colorgram for {word}")
 
         for doc in docs:
             yield (doc, self._sync_s3_path(ColorgramDocument(doc).path))
-
 
     def delete(self) -> None:
         self.log.info(f"deleting raw-images from S3...")
@@ -161,9 +174,96 @@ class Experiment:
                 index="_all",
                 query=delete_query,
                 value_keys=["aggregations", "count", "value"],
-                debug=self.debug
+                debug=self.debug,
             )
             self.log.info(f"would delete {would_delete} documents from elasticsearch")
+
+    def label(
+        self,
+        unlabeled_data_path: Path,
+        label_write_path: Path,
+        pivot_field: str,
+        include_fields: List[str],
+    ) -> None:
+        for cg_path in unlabeled_data_path.iterdir():
+            if not cg_path.is_file():
+                continue
+
+            cg_s3_key = cg_path.stem
+            pivot_value = get_response_value(
+                elasticsearch_client=self.elasticsearch_client,
+                index=COLORGRAMS_INDEX_PATTERN,
+                query={
+                    "query": {
+                        "bool": {
+                            "filter": [
+                                {"term": {"s3_key": cg_s3_key}},
+                                {"term": {"experiment_name": self.name}},
+                            ]
+                        }
+                    },
+                    "aggs": {
+                        pivot_field: {"terms": {"field": pivot_field + ".keyword"}}
+                    },
+                },
+                value_keys=["aggregations", pivot_field, "buckets", "*", "key"],
+                size=100,
+                debug=self.debug,
+            )
+
+            if isinstance(pivot_value, list):
+                raise AmbiguousDataError(
+                    f"more than 1 pivot value for {pivot_field} for colorgram with s3_key: {cg_s3_key}, {pivot_value}"
+                )
+
+            # aggregation of values of include_fields, should be only 1 for each, otherwise complain the pivot field does not cleanly divide across the dimensions requested
+            aggregations = get_response_value(
+                elasticsearch_client=self.elasticsearch_client,
+                index=RAW_IMAGES_INDEX_PATTERN,
+                query={
+                    "query": {
+                        "bool": {
+                            "filter": [
+                                {"term": {pivot_field: pivot_value}},
+                                {"term": {"experiment_name": self.name}},
+                            ]
+                        }
+                    },
+                    "aggs": {
+                        include_field: {"terms": {"field": include_field}}
+                        for include_field in include_fields
+                    },
+                },
+                value_keys=["aggregations"],
+                size=100,
+                debug=self.debug,
+            )
+
+            labels = dict()
+            for aggregation_name, aggregation in aggregations.items():
+                if len(aggregation["buckets"]) == 0:
+                    raise NoImagesInElasticsearchError(
+                        f"{aggregation_name}: {aggregation} had no buckets!"
+                    )
+                elif len(aggregation["buckets"]) > 1:
+                    raise AmbiguousDataError(
+                        f"{aggregation_name} returned more than 1 bucket: {aggregation}"
+                    )
+                else:
+                    try:
+                        label = {aggregation_name: aggregation["buckets"][0]["key"]}
+                    except KeyError as e:
+                        raise AmbiguousDataError(
+                            f"could not resolve key from single bucket: {aggregation}"
+                        )
+                    labels.update(label)
+
+            label_filename = Path(
+                "|".join([f"{key}={val}" for key, val in sorted(labels.items())])
+            ).with_suffix(".png")
+
+            label_write_path.joinpath(label_filename).write_bytes(cg_path.read_bytes())
+            self.log.info(f"labeled colorgram {label_filename}")
 
     def pull(self, pull_raw_images: bool = False) -> None:
         self.log.info(

@@ -20,7 +20,11 @@ from imgserve.args import (
     get_s3_args,
 )
 from imgserve.clients import get_clients
-from imgserve.elasticsearch import get_response_value, index_to_elasticsearch, COLORGRAMS_INDEX_PATTERN
+from imgserve.elasticsearch import (
+    get_response_value,
+    index_to_elasticsearch,
+    COLORGRAMS_INDEX_PATTERN,
+)
 from imgserve.logger import simple_logger
 from imgserve.s3 import s3_put_image
 from imgserve.trial import run_trial
@@ -78,7 +82,7 @@ def main(args: argparse.Namespace) -> None:
         name=args.experiment_name,
         s3_client=s3_client,
         dry_run=args.dry_run,
-        debug=args.debug
+        debug=args.debug,
     )
 
     imgserve = ImgServe(
@@ -273,10 +277,26 @@ def main(args: argparse.Namespace) -> None:
             input("continue...")
             image.close()
 
+    if args.label:
+        if args.unlabeled_data_path is None or args.label_write_path is None:
+            raise MissingRequiredArgError(
+                f"must provide --unlabeled-data-path and --label-write-path args"
+            )
 
+        experiment.label(
+            unlabeled_data_path=args.unlabeled_data_path,
+            label_write_path=args.label_write_path,
+            pivot_field="query",
+            include_fields=["query"],
+        )
 
-        
-
+    if args.export_vectors_to is not None:
+        args.export_vectors_to.parent.mkdir(exist_ok=True, parents=True)
+        vectors = list()
+        for colorgram_document in experiment.colorgrams:
+            del colorgram_document.source["downloads"]
+            vectors.append(colorgram_document.source)
+        args.export_vectors_to.write_text(json.dumps(vectors, indent=2))
 
 
 if __name__ == "__main__":

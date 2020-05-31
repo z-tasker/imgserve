@@ -1,3 +1,7 @@
+class AmbiguousDataError(Exception):
+    pass
+
+
 class APIError(Exception):
     pass
 

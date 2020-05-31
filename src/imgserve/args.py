@@ -136,7 +136,7 @@ def get_experiment_args(
     mode.add_argument(
         "--get",
         type=str,
-        help="Get and display colorgram for the provided query term from this experiment name"
+        help="Get and display colorgram for the provided query term from this experiment name",
     )
     mode.add_argument(
         "--pull",
@@ -147,6 +147,16 @@ def get_experiment_args(
         "--from-archive-path",
         type=Path,
         help="Load raw-images from an expanded archive",
+    )
+    mode.add_argument(
+        "--label",
+        action="store_true",
+        help="Label a folder of colorgrams where filename == s3_key according to --dimensions, must include args --unlabeled-data-path and --label-write-path",
+    )
+    mode.add_argument(
+        "--export-vectors-to",
+        type=Path,
+        help="export colorgram documents as a JSON list",
     )
 
     experiment_parser.add_argument(
@@ -209,7 +219,15 @@ def get_experiment_args(
     experiment_parser.add_argument(
         "--debug",
         action="store_true",
-        help="provide additional output to help debug queries, etc"
+        help="provide additional output to help debug queries, etc",
+    )
+    experiment_parser.add_argument(
+        "--unlabeled-data-path",
+        type=Path,
+        help="folder of colorgrams with filename as s3_key",
+    )
+    experiment_parser.add_argument(
+        "--label-write-path", type=Path, help="folder to write labeled colorgrams to"
     )
 
     return parser

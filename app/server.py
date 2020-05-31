@@ -79,13 +79,10 @@ async def open_experiment_csv(csv_path: Path) -> Dict[str, Dict[str, Any]]:
 
 async def respond_with_404(request: Request, message: str):
     response = templates.TemplateResponse(
-        "404.html",
-        {
-            "request": request,
-            "message": message,
-        },
+        "404.html", {"request": request, "message": message,},
     )
     return response
+
 
 @app.route("/")
 async def home(request: Request):
@@ -104,7 +101,9 @@ async def archive(request: Request):
         experiment = request.query_params["experiment"]
         dl_link = get_raw_data_link(experiment)
         if dl_link is None:
-            response = await respond_with_404(request=request, message=f"No download link available for {experiment}")
+            response = await respond_with_404(
+                request=request, message=f"No download link available for {experiment}"
+            )
         else:
             response = RedirectResponse(url=dl_link)
     else:
