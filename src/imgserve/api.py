@@ -112,7 +112,7 @@ class Experiment:
                 "query": {
                     "bool": {
                         "filter": [
-                            {"term": {"query": word}},
+                            {"term": {"query.keyword": word}},
                             {"term": {"experiment_name": self.name}},
                         ]
                     }

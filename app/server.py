@@ -183,6 +183,7 @@ async def experiments_listener(websocket: WebSocket):
                     local_data_store=Path("static/data"),
                     name=request["experiment"],
                     s3_client=S3_CLIENT,
+                    debug=DEBUG,
                 )
                 try:
                     found = [
@@ -201,6 +202,7 @@ async def experiments_listener(websocket: WebSocket):
                             "status": 404,
                             "message": "no colorgram for search term",
                             "query": request["get"],
+                            "experiment": experiment.name,
                         }
                     )
                     return
@@ -350,12 +352,15 @@ if __name__ == "__main__":
     get_elasticsearch_args(parser)
     get_s3_args(parser)
 
+    parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     global ELASTICSEARCH_CLIENT
     global S3_BUCKET
     global S3_CLIENT
+    global DEBUG
     ELASTICSEARCH_CLIENT, S3_CLIENT = get_clients(args)
     S3_BUCKET = args.s3_bucket
+    DEBUG = args.debug
 
     uvicorn.run(app, host="127.0.0.1", port=8080)
