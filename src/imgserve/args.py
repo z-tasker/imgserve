@@ -171,6 +171,11 @@ def get_experiment_args(
         help="hostname to use in metadata for images gathered by imgserve",
     )
     experiment_parser.add_argument(
+        "--top-wikipedia-articles",
+        type=int,
+        help="create the experiment.csv dynamically from the configured number of wikipedia articles",
+    )
+    experiment_parser.add_argument(
         "--max-images",
         default=100,
         help="if --run-trial is set, number of images to collect",

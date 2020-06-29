@@ -106,6 +106,51 @@ def main(args: argparse.Namespace) -> None:
         args.trial_ids = [default_trial_id(args.experiment_name)]
 
     if args.run_trial:
+        if args.top_wikipedia_articles is not None:
+            trial_config = { 
+                article.replace("_", " "): { "regions": ["nyc1"] } 
+                for article in get_response_value(
+                    elasticsearch_client=elasticsearch_client,
+                    index="top-wikipedia",
+                    query={
+                        "query": {
+                            "bool": {
+                                "filter": [
+                                    {"range": { "date": {"gte": "now-10d"}}},
+                                ],
+                                "must_not": [
+                                    {"terms": { "article.keyword": ["Main_Page", "Special:Search"] }},
+                                    {"match": { "article": "Template:*" }},
+                                    {"match": { "article": "Help:*" }},
+                                ]
+                            }
+                        },
+                        "aggregations": {
+                            "articles": {
+                                "terms": {
+                                    "field": "article.keyword",
+                                    "order": { "rank": "asc" },
+                                    "size": args.top_wikipedia_articles
+                                },
+                                "aggs": {
+                                    "rank": {
+                                        "min": { "field": "rank" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    value_keys=["aggregations", "articles", "buckets", "*", "key"],
+                    size=0,
+                    debug=True,
+                )
+            }
+            log.info(f"generated config with search terms: {trial_config.keys()}")
+
+        else:
+            trial_config = imgserve.get_experiment(args.experiment_name)
+
+
         if len(args.trial_ids) > 1:
             raise AmbiguousTrialIDError(
                 "when running a trial, please pass a maximum of one trial ID to --trial-ids, this is the id the new results will be associated with. Pass no --trial-ids for a sane default"
@@ -132,7 +177,7 @@ def main(args: argparse.Namespace) -> None:
             s3_endpoint_url=args.s3_endpoint_url,
             s3_region_name=args.s3_region_name,
             s3_secret_access_key=args.s3_secret_access_key,
-            trial_config=imgserve.get_experiment(args.experiment_name),
+            trial_config=trial_config,
             trial_hostname=args.trial_hostname,
             trial_id=trial_id,
             batch_slice=args.batch_slice,
@@ -297,6 +342,9 @@ def main(args: argparse.Namespace) -> None:
             del colorgram_document.source["downloads"]
             vectors.append(colorgram_document.source)
         args.export_vectors_to.write_text(json.dumps(vectors, indent=2))
+
+
+
 
 
 if __name__ == "__main__":

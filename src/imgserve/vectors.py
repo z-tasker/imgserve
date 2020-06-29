@@ -39,9 +39,8 @@ def get_vectors(
         try:
             metadata = {key: value for key, value in (tag.split("=") for tag in tags)}
         except ValueError as e:
-            raise MalformedTagsError(
-                f"Couldn't load metadata from colorgram stem: {tags}"
-            ) from e
+            log.error(f"Couldn't load metadata from colorgram stem: {tags}")
+            continue
 
         metadata.update(
             {

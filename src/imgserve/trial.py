@@ -156,6 +156,12 @@ def run_trial(
         if not skip_vectors:
             vector_stem = f"query={search_term}|hostname={trial_hostname}|trial_timestamp={trial_timestamp}"
             trial_downloads = query_downloads.joinpath("vector").joinpath(vector_stem)
+            try:
+                shutil.rmtree(
+                    trial_downloads
+                )  # clear existing downloads folders from previous runs
+            except FileNotFoundError:
+                pass
             trial_downloads.mkdir(parents=True)
             for downloaded_image in query_downloads.joinpath("images").glob("*.jpg"):
                 trial_downloads.joinpath(downloaded_image.name).write_bytes(
