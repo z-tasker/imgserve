@@ -47,7 +47,9 @@ def get_vectors(
                 "downloads": [img.stem for img in folder.iterdir()],
                 "s3_key": tags_to_hash(tags),
                 "rgb_dist": array_to_list(vector.rgb_dist),
+                "rgb_dist_std": array_to_list(vector.rgb_dist_std),
                 "jzazbz_dist": array_to_list(vector.jzazbz_dist),
+                "jzazbz_dist_std": array_to_list(vector.jzazbz_dist_std),
             }
         )
         yield vector, metadata
