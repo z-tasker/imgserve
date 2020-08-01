@@ -83,17 +83,6 @@ a.navlink {
     color: gray;
 }
 
-.column a:hover {
-    color: gray;
-}
-
-@media (hover: hover) {
-  button:hover {
-    color: white;
-    background-color: green;
-    border-color: green;
-  }
-}
 
 .selector input, select, button {
   background-color: black;
