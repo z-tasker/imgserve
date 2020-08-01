@@ -12,7 +12,7 @@
       <div class="selector" id="selector-{{ i }}-{{ j }}">
         <form action="javascript:getImageFromFormWebsocket(action='get', values_from=['get', 'experiment'], img_target='colorgram', use_id='{{ i }}-{{ j }}')">
           <div class="custom-select">
-            <select autocomplete="nope" id="experiment-{{ i }}-{{ j }}">
+            <select autocomplete="concreteness" id="experiment-{{ i }}-{{ j }}">
               <option value="{{ default_experiment }}" selected>{{ default_experiment }}</option>
               {% for experiment_name in experiments.keys() %}
               {% if default_experiment != experiment_name %}
@@ -22,7 +22,7 @@
             </select>
           </div>
           <input id="get-{{ i }}-{{ j }}" type="text" autofocus autocomplete="off" placeholder="search...">
-          <button type="submit" value="Submit">Submit</button>
+          <button class="ws-submit" id="submit-{{ i }}-{{ j }}" value="Submit">Submit</button>
         </form> 
       </div>
       {% endfor %}
