@@ -22,8 +22,8 @@
             </select>
           </div>
           <input id="get-{{ i }}-{{ j }}" type="text" autofocus autocomplete="off" placeholder="search...">
-          <input type="submit" style="margin-left: -1000px; height: 2px;";>
           <button type="button" class="ws-submit" id="submit-{{ i }}-{{ j }}" value="Submit">Submit</button>
+          <input type="submit" style="visibility:hidden;position:absolute"/>
         </form> 
       </div>
       {% endfor %}
