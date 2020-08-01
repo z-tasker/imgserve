@@ -104,6 +104,10 @@ a.navlink {
   margin: auto;
 }
 
+.selector button {
+  cursor: pointer;
+}
+
 .selector input[type=text]:focus {
   border: 2px solid green;
 }
