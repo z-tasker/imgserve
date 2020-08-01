@@ -48,7 +48,15 @@ function getImageFromFormWebsocket(action, values_from, img_target, use_id) {
 }
 
 function bindSubmitButton(submitButton) {
-    submitButton.addEventListener("click tap", 
+    submitButton.addEventListener("click", 
+        getImageFromFormWebsocket(
+            action="get", 
+            values_from=["get", "experiment"], 
+            img_target="colorgram",
+            use_id=submitButton.id.replace("submit-", "")
+        )
+    )
+    submitButton.addEventListener("touchstart", 
         getImageFromFormWebsocket(
             action="get", 
             values_from=["get", "experiment"], 
