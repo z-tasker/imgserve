@@ -8,7 +8,6 @@
       {% for j in range(5) %}
       <h4 id="label-{{ i }}-{{ j }}"></h4>
       <div class="colorgram"><img id="colorgram-{{ i }}-{{ j }}"></div>
-      <button id="hide-{{ i }}-{{ j }}" onclick="javascript:hideForm(target='selector', use_id='{{ i }}-{{ j }}')">hide</button>
       <div class="selector" id="selector-{{ i }}-{{ j }}">
         <form action="javascript:getImageFromFormWebsocket(action='get', values_from=['get', 'experiment'], img_target='colorgram', use_id='{{ i }}-{{ j }}')">
           <div class="custom-select">
@@ -23,7 +22,6 @@
           </div>
           <input id="get-{{ i }}-{{ j }}" type="text" autofocus autocomplete="off" placeholder="search...">
           <button type="button" class="ws-submit" id="submit-{{ i }}-{{ j }}" value="Submit">Submit</button>
-          <input type="submit" style="visibility:hidden;position:absolute"/>
         </form> 
       </div>
       {% endfor %}
