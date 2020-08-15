@@ -1,0 +1,46 @@
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: imgserve-internal-web
+  namespace: imgserve
+  annotations:
+    kubernetes.io.ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - comp-syn.ialcloud.xyz
+    secretName: internal-domain-tls
+  rules:
+    - host: comp-syn.ialcloud.xyz
+      http:
+        paths:
+        - path: /
+          backend:
+            serviceName: imgserve-web
+            servicePort: 8080
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: imgserve-comp-syn-web
+  namespace: imgserve
+  annotations:
+    kubernetes.io.ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - comp-syn.com
+    secretName: internal-domain-tls
+  rules:
+    - host: comp-syn.com
+      http:
+        paths:
+        - path: /
+          backend:
+            serviceName: imgserve-web
+            servicePort: 8080
