@@ -1,13 +1,12 @@
 export AWS_ACCESS_KEY_ID=
 export AWS_SECRET_ACCESS_KEY=
-export AWS_REGION_NAME="ca-central-1"
-export AWS_BUCKET_NAME="compsyn"
-export ES_CLIENT_FQDN="mgraskersearch-0"
+export AWS_REGION_NAME=
+export AWS_BUCKET_NAME=
+export ES_CLIENT_FQDN=
 export ES_USERNAME=
 export ES_PASSWORD=
-export ES_CA_CERTS=
 export IMGSERVE_LOCAL_DATA_STORE=
-export IMGSERVE_REMOTE_URL="https://compsyn.fourtheye.xyz"
+export IMGSERVE_REMOTE_URL=
 export IMGSERVE_REMOTE_USERNAME=
 export IMGSERVE_REMOTE_PASSWORD=
 export IMGSERVE_HOSTNAME=
