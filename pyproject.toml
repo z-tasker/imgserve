@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "imgserve"
 version = "2.0.0"
-description = ""
-authors = ["mgraskertheband <theband@mgrasker.com>"]
+description = "Loop experiments involving the internet"
+authors = ["Loop Fellow <loops@ialcloud.xyz>"]
 
 [tool.poetry.dependencies]
 python = "^3.7"
