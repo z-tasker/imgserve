@@ -1,6 +1,5 @@
 #!/bin/bash -e
 
-cd /home/admin/imgserve
 git pull
 poetry run ./server.py \
   --elasticsearch-client-fqdn "${ES_CLIENT_FQDN}" \

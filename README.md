@@ -61,4 +61,4 @@ open `localhost:8080` in your browser to view experiment results.
 
 ## Running LangIP
 
-./experiment.sh --experiment-name langip-grids-emotions --trial-ids archive-langip-grids-emotions --dimensions query eng_ref language region experiment_name trial_timestamp
+./experiment.sh --experiment-name langip-grids-emotions --trial-ids archive-langip-grids-emotions --dimensions query eng_ref language region experiment_name trial_timestam
