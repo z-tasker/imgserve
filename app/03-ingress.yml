@@ -8,11 +8,14 @@ metadata:
     kubernetes.io.ingress.class: nginx
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - Comp-Syn'
 spec:
   tls:
   - hosts:
     - comp-syn.ialcloud.xyz
-    secretName: internal-domain-tls
+    secretName: comp-syn-ialcloud-xyz-tls
   rules:
     - host: comp-syn.ialcloud.xyz
       http:
@@ -31,11 +34,14 @@ metadata:
     kubernetes.io.ingress.class: nginx
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - Comp-Syn'
 spec:
   tls:
   - hosts:
     - comp-syn.com
-    secretName: internal-domain-tls
+    secretName: comp-syn-com-tls
   rules:
     - host: comp-syn.com
       http:

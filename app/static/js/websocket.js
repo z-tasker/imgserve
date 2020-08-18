@@ -22,7 +22,7 @@ function getImageFromFormWebsocket(action, values_from, img_target, use_id) {
     values_from.forEach(addToRequest);
 
  //   var websocket_address = "ws://localhost:8080/data";
-    var websocket_address = "wss://compsyn.fourtheye.xyz/data";
+    var websocket_address = "wss://comp-syn.ialcloud.xyz/data";
     var websocket = new WebSocket(websocket_address)
 
     websocket.onopen = function() {
@@ -41,6 +41,7 @@ function getImageFromFormWebsocket(action, values_from, img_target, use_id) {
             default:
                 img.src = "https://www.publicdomainpictures.net/pictures/280000/velka/not-found-image-15383864787lu.jpg";
         }
+        return img.src
     };
     websocket.onclose = function() {
         console.log("websocket closing.");

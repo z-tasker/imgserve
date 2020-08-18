@@ -107,38 +107,39 @@ def main(args: argparse.Namespace) -> None:
 
     if args.run_trial:
         if args.top_wikipedia_articles is not None:
-            trial_config = { 
-                article.replace("_", " "): { "regions": ["nyc1"] } 
+            trial_config = {
+                article.replace("_", " "): {"regions": ["nyc1"]}
                 for article in get_response_value(
                     elasticsearch_client=elasticsearch_client,
                     index="top-wikipedia",
                     query={
                         "query": {
                             "bool": {
-                                "filter": [
-                                    {"range": { "date": {"gte": "now-10d"}}},
-                                ],
+                                "filter": [{"range": {"date": {"gte": "now-10d"}}},],
                                 "must_not": [
-                                    {"terms": { "article.keyword": ["Main_Page", "Special:Search"] }},
-                                    {"match": { "article": "Template:*" }},
-                                    {"match": { "article": "Help:*" }},
-                                ]
+                                    {
+                                        "terms": {
+                                            "article.keyword": [
+                                                "Main_Page",
+                                                "Special:Search",
+                                            ]
+                                        }
+                                    },
+                                    {"match": {"article": "Template:*"}},
+                                    {"match": {"article": "Help:*"}},
+                                ],
                             }
                         },
                         "aggregations": {
                             "articles": {
                                 "terms": {
                                     "field": "article.keyword",
-                                    "order": { "rank": "asc" },
-                                    "size": args.top_wikipedia_articles
+                                    "order": {"rank": "asc"},
+                                    "size": args.top_wikipedia_articles,
                                 },
-                                "aggs": {
-                                    "rank": {
-                                        "min": { "field": "rank" }
-                                    }
-                                }
+                                "aggs": {"rank": {"min": {"field": "rank"}}},
                             }
-                        }
+                        },
                     },
                     value_keys=["aggregations", "articles", "buckets", "*", "key"],
                     size=0,
@@ -149,7 +150,6 @@ def main(args: argparse.Namespace) -> None:
 
         else:
             trial_config = imgserve.get_experiment(args.experiment_name)
-
 
         if len(args.trial_ids) > 1:
             raise AmbiguousTrialIDError(
@@ -342,9 +342,6 @@ def main(args: argparse.Namespace) -> None:
             del colorgram_document.source["downloads"]
             vectors.append(colorgram_document.source)
         args.export_vectors_to.write_text(json.dumps(vectors, indent=2))
-
-
-
 
 
 if __name__ == "__main__":

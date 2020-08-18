@@ -24,7 +24,7 @@ def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clien
         http_auth=(args.elasticsearch_username, args.elasticsearch_password),
         use_ssl=True,
         verify_certs=True,
-        ca_certs=args.elasticsearch_ca_certs,
+        #        ca_certs=args.elasticsearch_ca_certs,
     )
     check_elasticsearch(
         elasticsearch_client,

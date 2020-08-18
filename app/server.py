@@ -12,6 +12,14 @@ from pathlib import Path
 
 import uvicorn
 from starlette.applications import Starlette
+from starlette.authentication import (
+    AuthenticationBackend,
+    AuthenticationError,
+    SimpleUser,
+    UnauthenticatedUser,
+    AuthCredentials,
+    requires,
+)
 from starlette.requests import Request
 from starlette.responses import (
     HTMLResponse,
@@ -25,6 +33,7 @@ from starlette.templating import Jinja2Templates
 from starlette.websockets import WebSocket
 
 from starlette.middleware import Middleware
+from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
 from imgserve import get_experiment_csv_path, STATIC, LOCAL_DATA_STORE
@@ -34,13 +43,50 @@ from imgserve.clients import get_clients
 
 from vectors import get_experiments
 
+
+# Requests will be authenticated by an upstream component, in this case most likely an OAuth2 proxy that adds authentication headers 
+class BasicAuthBackend(AuthenticationBackend):
+    async def authenticate(self, request):
+        if "Authorization" not in request.headers:
+            return
+
+        auth = request.headers["Authorization"]
+        try:
+            scheme, credentials = auth.split()
+            if scheme.lower() != "basic":
+                return
+            decoded = base64.b64decode(credentials).decode("ascii")
+        except (ValueError, UnicodeDecodeError, binascii.Error) as exc:
+            raise AuthenticationError("Invalid basic auth credentials")
+
+        username, _, password = decoded.partition(":")
+        try:
+            assert password == USERS[username]
+        except (AssertionError, KeyError) as exc:
+            raise AuthenticationError("Username or Password incorrect for {username}.")
+
+        logging.info(f"authenticated {username}")
+        return AuthCredentials(["authenticated"]), SimpleUser(username)
+
+
+def on_auth_error(request: Request, exc: Exception):
+    return JSONResponse({"error": str(exc)}, status_code=401)
+
+
 middleware = [
     Middleware(
         CORSMiddleware,
-        allow_origins=["compsyn.fourtheye.xyz", "compsyn.fourtheye.xyz:443"],
+        allow_origins=[
+            "localhost:8080",
+            "comp-syn.ialcloud.xyz:443",
+            "comp-syn.com:443",
+        ],
         allow_headers=["*"],
         allow_methods=["*"],
-    )
+    ),
+    Middleware(
+        AuthenticationMiddleware, backend=BasicAuthBackend(), on_error=on_auth_error
+    ),
 ]
 
 app = Starlette(middleware=middleware)
@@ -48,7 +94,11 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 templates = Jinja2Templates(directory="templates")
 
-log = logging.getLogger()
+
+USERS = {
+    "compsyn": os.getenv("IMGSERVE_USER_COMPSYN_PASSWORD"),
+    "admin": os.getenv("IMGSERVE_USER_ADMIN_PASSWORD"),
+}
 
 
 def get_raw_data_link(experiment: str) -> Optional[str]:
@@ -85,6 +135,7 @@ async def respond_with_404(request: Request, message: str):
 
 
 @app.route("/")
+@requires("authenticated")
 async def home(request: Request):
     template = "home.html"
 
@@ -96,6 +147,7 @@ async def home(request: Request):
 
 
 @app.route("/archive")
+@requires("authenticated", redirect="homepage")
 async def archive(request: Request):
     if "experiment" in request.query_params:
         experiment = request.query_params["experiment"]
@@ -116,6 +168,7 @@ async def archive(request: Request):
 
 
 @app.route("/search")
+@requires("authenticated", redirect="homepage")
 async def search(request: Request):
     template = "search.html"
 
@@ -125,6 +178,7 @@ async def search(request: Request):
     return templates.TemplateResponse(template, context)
 
 
+@requires("authenticated", redirect="homepage")
 @app.route("/sketch")
 async def sketch(request: Request):
 
@@ -166,15 +220,18 @@ async def valid_webhook_request(
 
 
 @app.websocket_route("/data")
+@requires("authenticated", redirect="homepage")
 async def experiments_listener(websocket: WebSocket):
     experiments = get_experiments(ELASTICSEARCH_CLIENT)
 
     await websocket.accept()
     request = await websocket.receive_json()
 
-    if valid_webhook_request(websocket, request, ["action"]):
+    logging.info("processing websocket request")
+
+    if await valid_webhook_request(websocket, request, required_keys=["action"]):
         if request["action"] == "get":
-            if valid_webhook_request(
+            if await valid_webhook_request(
                 websocket, request, required_keys=["experiment", "get"]
             ):
                 experiment = Experiment(
@@ -196,7 +253,7 @@ async def experiments_listener(websocket: WebSocket):
                         for doc, img_path in experiment.get(request["get"])
                     ]
                 except FileNotFoundError as e:
-                    log.info(f"no match for get {e}")
+                    logging.info(f"no match for get {e}")
                     await websocket.send_json(
                         {
                             "status": 404,
@@ -211,7 +268,7 @@ async def experiments_listener(websocket: WebSocket):
                 clean_resp = copy.deepcopy(resp)
                 del clean_resp["found"]["doc"]["_source"]["downloads"]
                 del clean_resp["found"]["image_bytes"]
-                log.info(f"sending JSON response through websocket: {clean_resp}")
+                logging.info(f"sending JSON response through websocket: {clean_resp}")
                 await websocket.send_json(resp)
         elif request["action"] == "list_experiments":
             await websocket.send_json(
@@ -224,6 +281,7 @@ async def experiments_listener(websocket: WebSocket):
 
 
 @app.route("/langip_grids_{langip_name}")
+@requires("authenticated", redirect="homepage")
 async def langip_grids(request: Request):
     template = "langip.html"
 
@@ -277,6 +335,7 @@ async def langip_grids(request: Request):
 
 
 @app.route("/experiments/{experiment_name}")
+@requires("authenticated", redirect="homepage")
 async def experiment_csv(request: Request) -> Response:
 
     experiment_name = request.path_params["experiment_name"]
@@ -289,7 +348,7 @@ async def experiment_csv(request: Request) -> Response:
         )
         status_code = 200
     except FileNotFoundError as e:
-        log.error(f"{experiment_name}: {e}")
+        logging.error(f"{experiment_name}: {e}")
         status_code = 404
         response = {
             "missing": experiment_name,
@@ -300,7 +359,7 @@ async def experiment_csv(request: Request) -> Response:
             ],
         }
     except KeyError as e:
-        log.error(f"{experiment_name}: {e}")
+        logging.error(f"{experiment_name}: {e}")
         status_code = 422
         response = {
             "invalid": experiment_name,
@@ -311,6 +370,7 @@ async def experiment_csv(request: Request) -> Response:
 
 
 @app.route("/results/{experiment}")
+@requires("authenticated", redirect="homepage")
 async def generated(request: Request):
     template = "results.html"
 

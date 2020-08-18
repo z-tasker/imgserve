@@ -1,6 +1,6 @@
 ARG imgserve_version
 FROM mgraskertheband/imgserve:${imgserve_version}
 
-ADD pad.py server.py vectors.py up.sh /home/admin/
+WORKDIR /home/admin/imgserve/app
 
-ENTRYPOINT ["/home/admin/up.sh"]
+ENTRYPOINT ["/home/admin/imgserve/app/up.sh"]
