@@ -1,3 +1,7 @@
+#!/bin/bash -e
+
+cd /home/admin/imgserve
+git pull
 poetry run ./server.py \
   --elasticsearch-client-fqdn "${ES_CLIENT_FQDN}" \
   --elasticsearch-username "${ES_USERNAME}" \
@@ -6,4 +10,4 @@ poetry run ./server.py \
   --s3-region-name "${AWS_REGION_NAME}" \
   --s3-access-key-id "${AWS_ACCESS_KEY_ID}" \
   --s3-secret-access-key "${AWS_SECRET_ACCESS_KEY}" \
-  --debug
+  "${@}"

@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imgserve-web
+  namespace: imgserve
+  labels:
+    app: imgserve-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: imgserve-web
+  template:
+    metadata:
+      labels:
+        app: imgserve-web
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - imgserve-web
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: imgserve-web
+        image: mgraskertheband/imgserve-web:1.0.0
+        imagePullPolicy: Always
+        env:
+          - name: ES_CLIENT_FQDN
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: es_client_fqdn
+          - name: ES_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: es_username
+          - name: ES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: es_password
+          - name: AWS_BUCKET_NAME
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: aws_bucket_name
+          - name: AWS_REGION_NAME
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: aws_region_name
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: aws_secret_access_key
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imgserve-web
+  namespace: imgserve
+spec:
+  selector:
+    app: imgserve-web
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
