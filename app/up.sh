@@ -1,7 +1,8 @@
 #!/bin/bash -e
 
 git pull
-poetry run ./server.py \
+
+~/.poetry/bin/poetry run ./server.py \
   --elasticsearch-client-fqdn "${ES_CLIENT_FQDN}" \
   --elasticsearch-username "${ES_USERNAME}" \
   --elasticsearch-password "${ES_PASSWORD}" \
