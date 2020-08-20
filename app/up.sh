@@ -2,7 +2,7 @@
 
 git pull
 
-~/.poetry/bin/poetry run ./server.py \
+/home/admin/.poetry/bin/poetry run ./server.py \
   --elasticsearch-client-fqdn "${ES_CLIENT_FQDN}" \
   --elasticsearch-username "${ES_USERNAME}" \
   --elasticsearch-password "${ES_PASSWORD}" \
