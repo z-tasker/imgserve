@@ -38,6 +38,11 @@ spec:
             secretKeyRef:
               name: imgserve-web
               key: es_client_fqdn
+        - name: ES_CLIENT_PORT
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: es_client_port
         - name: ES_USERNAME
           valueFrom:
             secretKeyRef:
