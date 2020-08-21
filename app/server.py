@@ -77,9 +77,9 @@ middleware = [
     Middleware(
         CORSMiddleware,
         allow_origins=[
-            "localhost:8080",
             "comp-syn.ialcloud.xyz:443",
             "comp-syn.com:443",
+            "localhost:8080",
         ],
         allow_headers=["*"],
         allow_methods=["*"],
@@ -423,4 +423,4 @@ if __name__ == "__main__":
     S3_BUCKET = args.s3_bucket
     DEBUG = args.debug
 
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8080, proxy_headers=True)

@@ -11,6 +11,8 @@ metadata:
     nginx.ingress.kubernetes.io/auth-type: basic
     nginx.ingress.kubernetes.io/auth-secret: basic-auth
     nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - Comp-Syn'
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Authorization $http_authorization;
 spec:
   tls:
   - hosts:
@@ -24,29 +26,29 @@ spec:
           backend:
             serviceName: imgserve-web
             servicePort: 8080
----
-apiVersion: networking.k8s.io/v1beta1
-kind: Ingress
-metadata:
-  name: imgserve-comp-syn-web
-  namespace: imgserve
-  annotations:
-    kubernetes.io.ingress.class: nginx
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/auth-type: basic
-    nginx.ingress.kubernetes.io/auth-secret: basic-auth
-    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - Comp-Syn'
-spec:
-  tls:
-  - hosts:
-    - comp-syn.com
-    secretName: comp-syn-com-tls
-  rules:
-    - host: comp-syn.com
-      http:
-        paths:
-        - path: /
-          backend:
-            serviceName: imgserve-web
-            servicePort: 8080
+            #---
+            #apiVersion: networking.k8s.io/v1beta1
+            #kind: Ingress
+            #metadata:
+            #  name: imgserve-comp-syn-web
+            #  namespace: imgserve
+            #  annotations:
+            #    kubernetes.io.ingress.class: nginx
+            #    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+            #    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+            #    nginx.ingress.kubernetes.io/auth-type: basic
+            #    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+            #    nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required - Comp-Syn'
+            #spec:
+            #  tls:
+            #  - hosts:
+            #    - comp-syn.com
+            #    secretName: comp-syn-com-tls
+            #  rules:
+            #    - host: comp-syn.com
+            #      http:
+            #        paths:
+            #        - path: /
+            #          backend:
+            #            serviceName: imgserve-web
+            #            servicePort: 8080
