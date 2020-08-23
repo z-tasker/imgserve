@@ -2,6 +2,18 @@
 apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
+  name: imgserve-fourtheye-redirect
+  namespace: imgserve
+  annotations:
+    kubernetes.io.ingress.class: nginx
+    nginx.ingress.kubernetes.io/permanent-redirect: "https://comp-syn.ialcloud.xyz"
+spec:
+  rules:
+    - host: compsyn.fourtheye.xyz
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
   name: imgserve-internal-web
   namespace: imgserve
   annotations:
