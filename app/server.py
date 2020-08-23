@@ -220,7 +220,6 @@ async def valid_webhook_request(
 
 
 @app.websocket_route("/data")
-@requires("authenticated", redirect="homepage")
 async def experiments_listener(websocket: WebSocket):
     experiments = get_experiments(ELASTICSEARCH_CLIENT)
 
