@@ -54,7 +54,7 @@ function getImageFromFormWebsocket(action, values_from, img_target, use_id) {
 
 function bindSubmitButton(submitButton) {
     submitButton.addEventListener("click touchstart", 
-        function(){this.value=this.value.toLowerCase()}
+        function(){submitButton.value=submitButton.value.toLowerCase()}
     )
     submitButton.addEventListener("click touchstart", 
         getImageFromFormWebsocket(
