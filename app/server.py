@@ -249,7 +249,7 @@ async def experiments_listener(websocket: WebSocket):
                                 img_path.read_bytes()
                             ).decode("utf-8"),
                         }
-                        for doc, img_path in experiment.get(request["get"])
+                        for doc, img_path in experiment.get(request["get"].lower())
                     ]
                 except FileNotFoundError as e:
                     logging.info(f"no match for get {e}")
