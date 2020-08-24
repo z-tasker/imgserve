@@ -89,10 +89,14 @@ def assemble_downloads(
         )
         for field in dimensions
     }
-    if len(field_values) == 0:
-        raise NoImagesInElasticsearchError(
-            f"Could not find any field values for {RAW_IMAGES_INDEX_PATTERN} matching the filter: {shared_filter}. Is the data indexed properly?"
-        )
+    errors = list()
+    for field_key, field_value in field_values.items():
+        if len(field_value) == 0:
+            errors.append(
+                f"Could not find any field values for {RAW_IMAGES_INDEX_PATTERN} matching the filter: {json.dumps(shared_filter)}"
+            )
+    if len(errors) > 0:
+        raise NoImagesInElasticsearchError("\n".join(errors))
     queries = [(slug, query) for (slug, query) in recursively_combine(field_values)]
     if len(queries) == 0:
         raise NoQueriesGatheredError(

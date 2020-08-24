@@ -26,13 +26,16 @@ to contribute results to a given <experiment_name>:
   --run-trial
 ```
 
-to look at colorgrams for all trials for this experiment:
+To assemble data for a given set of trials for the experiment:
 
 ```
 ./experiment.sh \
   --experiment-name null-test \
-  --dimensions query trial_id trial_timestamp
+  --dimensions query trial_id trial_timestamp \
+  --trial-ids test-host-0
 ```
+
+This command will create a compsyn `downloads` folder for each set of images accross the requested dimensions.
 
 These shell scripts are light wrappers around poetry calls, mostly to keep the number of arguments required to a minimum. They are meant to make the basic usage of this program very simple, but are not required.
 
