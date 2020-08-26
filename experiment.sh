@@ -1,4 +1,8 @@
-poetry run ./bin/experiment.py \
+#!/bin/bash -e
+
+git pull
+
+${HOME}/.poetry/bin/poetry run ./bin/experiment.py \
   --elasticsearch-client-fqdn "${ES_CLIENT_FQDN}" \
   --elasticsearch-username "${ES_USERNAME}" \
   --elasticsearch-password "${ES_PASSWORD}" \
