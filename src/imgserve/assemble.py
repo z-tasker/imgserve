@@ -11,6 +11,7 @@ from elasticsearch import Elasticsearch, helpers
 
 from .elasticsearch import RAW_IMAGES_INDEX_PATTERN, all_field_values
 from .errors import NoImagesInElasticsearchError, NoQueriesGatheredError
+from .logger import simple_logger
 
 """
   Assemble image data
@@ -74,17 +75,30 @@ def assemble_downloads(
         Data may already exist locally, or can be gathered from S3.
         In either case, Elasticsearch is used as the source of truth for gathering the required images.
     """
+    log = simple_logger(
+        "imgserve.assemble_downloads" + (f".DRY_RUN" if dry_run else "")
+    )
+    log.info("enumerating images from elasticsearch")
 
     downloads_path = local_data_store.joinpath(experiment_name).joinpath("downloads")
 
+    global ELASTICSEARCH_CLIENT
+    ELASTICSEARCH_CLIENT = elasticsearch_client
+
     # query elasticsearch to assemble a list of required images
-    shared_filter = {"terms": {"trial_id": trial_ids}}
+    if len(trial_ids) >= 0:
+        shared_filter = {"terms": {"trial_id": trial_ids}}
+        field_values_query = {"query": {"bool": {"filter": [shared_filter]}}}
+    else:
+        log.info("no trial IDs passed, data will encompass all trial ids")
+        shared_filter = None
+        field_values_query = {"query": {"match_all": {}}}
     field_values = {
         field: list(
             all_field_values(
                 elasticsearch_client,
                 field,
-                query={"query": {"bool": {"filter": [shared_filter]}}},
+                query=field_values_query
             )
         )
         for field in dimensions
@@ -93,59 +107,69 @@ def assemble_downloads(
     for field_key, field_value in field_values.items():
         if len(field_value) == 0:
             errors.append(
-                f"Could not find any field values for {RAW_IMAGES_INDEX_PATTERN} matching the filter: {json.dumps(shared_filter)}"
+                f"Could not find any field values for {RAW_IMAGES_INDEX_PATTERN} matching the query: {json.dumps(field_values_query)}"
             )
     if len(errors) > 0:
         raise NoImagesInElasticsearchError("\n".join(errors))
     queries = [(slug, query) for (slug, query) in recursively_combine(field_values)]
     if len(queries) == 0:
+        log.debug(f"{len(queries)} queries gathered for data extraction")
         raise NoQueriesGatheredError(
             f"no queries could be generated for field values {field_values}!"
         )
-    image_directories = defaultdict(list)
-    for slug, query in queries:
-        query["query"]["bool"]["filter"].append(shared_filter)
-        for image_doc in helpers.scan(
-            elasticsearch_client, index=RAW_IMAGES_INDEX_PATTERN, query=query
-        ):
-            source = image_doc["_source"]
-            try:
-                relative_image_path = (
-                    Path("data")
-                    .joinpath(source["trial_id"])
-                    .joinpath(source["hostname"])
-                    .joinpath(source["query"].replace(" ", "_"))
-                    .joinpath(source["trial_timestamp"])
-                    .joinpath("images")
-                    .joinpath(source["image_id"])
-                    .with_suffix(".jpg")
-                )
-            except KeyError as e:
-                print(image_doc)
-                print(e)
-            image_directories[slug].append(relative_image_path)
+
+    image_directories: Dict[str, List[Path]] = dict()
+    with tqdm(total=len(queries), desc="(step 1/2) Query") as pbar:
+        for slug, query in queries:
+            if shared_filter is not None:
+                query["query"]["bool"]["filter"].append(shared_filter)
+            paths = list()
+            for image_doc in helpers.scan(
+                ELASTICSEARCH_CLIENT, index=RAW_IMAGES_INDEX_PATTERN, query=query
+            ):
+                source = image_doc["_source"]
+                try:
+                    relative_image_path = (
+                        Path("data")
+                        .joinpath(source["trial_id"])
+                        .joinpath(source["hostname"])
+                        .joinpath(source["query"].replace(" ", "_"))
+                        .joinpath(source["trial_timestamp"])
+                        .joinpath("images")
+                        .joinpath(source["image_id"])
+                        .with_suffix(".jpg")
+                    )
+                    paths.append(relative_image_path)
+                except KeyError as e:
+                    print(image_doc)
+                    print(e)
+            image_directories[slug] = paths
+            pbar.update(1)
+
     total_images = sum([len(image_paths) for image_paths in image_directories.values()])
     if total_images == 0:
         raise NoImagesInElasticsearchError(
             f"{json.dumps(queries, indent=2)}\n  0 images available for assembly from 'raw-images' according to the above query. Has this trial been indexed?"
         )
+
     if not dry_run:
+        log.info("downloading images from S3")
         if downloads_path.is_dir():
             existing_at_path = list(downloads_path.iterdir())
             if len(existing_at_path) > 0:
                 if prompt and input(
                     f"{len(existing_at_path)} items found at {downloads_path}, clear for this new run? (y/n) "
                 ).lower() not in ["y", "yes"]:
-                    logging.warning(
+                    log.warning(
                         "not clearing, new results will be mixed with existing data"
                     )
                 else:
-                    logging.debug(
+                    log.debug(
                         "clearing downloads path to make way for this experiment to run"
                     )
                     shutil.rmtree(downloads_path)
         downloads_path.mkdir(exist_ok=True, parents=True)
-        with tqdm(total=total_images, desc="Images Assembled") as pbar:
+        with tqdm(total=total_images, desc="(step 2/2) Download") as pbar:
             for slug, image_paths in image_directories.items():
                 images_directory = downloads_path.joinpath(slug)
                 for image_path in image_paths:
@@ -163,12 +187,16 @@ def assemble_downloads(
                             Bucket=bucket_name, Key=str(image_path)
                         )
                         archive_path.parent.mkdir(exist_ok=True, parents=True)
-                        archive_path.write_bytes(image_obj["Body"].read())
+                        try:
+                            archive_path.write_bytes(image_obj["Body"].read())
+                        except botocore.exceptions.ReadTimeoutError as exc:
+                            # TODO retry logic
+                            log.error(f"S3 read timeout, skipping. {exc}")
                         images_directory.joinpath(image_path.name).write_bytes(
                             archive_path.read_bytes()
                         )
                     pbar.update(1)
-    logging.info(f"{total_images} image paths gathered")
+    log.info(f"{total_images} image paths gathered")
     if not dry_run:
-        logging.info(f"assembled directory: {downloads_path}")
+        log.info(f"assembled directory: {downloads_path}")
         return downloads_path

@@ -44,7 +44,7 @@ from imgserve.clients import get_clients
 from vectors import get_experiments
 
 
-# Requests will be authenticated by an upstream component, in this case most likely an OAuth2 proxy that adds authentication headers 
+# Requests will be authenticated by an upstream component, in this case most likely an OAuth2 proxy that adds authentication headers
 class BasicAuthBackend(AuthenticationBackend):
     async def authenticate(self, request):
         if "Authorization" not in request.headers:

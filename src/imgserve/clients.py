@@ -20,7 +20,7 @@ def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clien
                 "port": args.elasticsearch_client_port,
             }
         ],
-        timeout=60,
+        timeout=300,
         http_auth=(args.elasticsearch_username, args.elasticsearch_password),
         use_ssl=True,
         verify_certs=True,

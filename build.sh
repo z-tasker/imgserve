@@ -17,4 +17,10 @@ if [ "${2}" == "--push" ]; then
   docker push mgraskertheband/imgserve-web:${IMGSERVE_VERSION} 
 fi
 cd -
+cd experiment
+docker build -t mgraskertheband/imgserve-experiment:${IMGSERVE_VERSION} --build-arg imgserve_version=${IMGSERVE_VERSION} .
+if [ "${2}" == "--push" ]; then
+  docker push mgraskertheband/imgserve-experiment:${IMGSERVE_VERSION} 
+fi
+cd -
 
