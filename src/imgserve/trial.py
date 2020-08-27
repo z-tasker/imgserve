@@ -26,10 +26,23 @@ QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.3.0"
 
 @retry(tries=10, backoff=5)
 def run_search(docker_run_command: str) -> None:
-    with open("qloader.log", "a") as f:
-        subprocess.run(
-            shlex.split(docker_run_command), stdin=None, stdout=f, stderr=f, check=True,
+    def execute(cmd: str) -> Generator[str, None, None]:
+        proc = subprocess.Popen(
+            shlex.split(cmd), stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
         )
+        for stdout_line in iter(proc.stdout.readline, ""):
+            yield stdout_line
+        proc.stdout.close()
+        for stderr_line in iter(proc.stderr.readline, ""):
+            yield stderr_line
+        proc.stderr.close()
+        return_code = proc.wait()
+        if return_code:
+            raise subprocess.CalledProcessError(return_code, docker_run_command)
+
+    log = simple_logger("dind_run")
+    for output in execute(docker_run_command):
+        log.debug(output)
 
 
 def run_trial(
