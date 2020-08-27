@@ -28,7 +28,7 @@ QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.3.0"
 def run_search(docker_run_command: str) -> None:
     log = simple_logger("subprocess")
     proc = subprocess.run(
-        shlex.split(cmd), capture_output=True
+        shlex.split(docker_run_command), capture_output=True
     )
     log.debug("stdout: " + proc.stdout.decode("utf-8"))
     log.debug("stderr: " + proc.stderr.decode("utf-8"))
