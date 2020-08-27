@@ -24,25 +24,17 @@ from .vectors import get_vectors
 QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.3.0"
 
 
-@retry(tries=10, backoff=5)
+@retry(tries=5, backoff=5)
 def run_search(docker_run_command: str) -> None:
-    def execute(cmd: str) -> Generator[str, None, None]:
-        proc = subprocess.Popen(
-            shlex.split(cmd), stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        )
-        for stdout_line in iter(proc.stdout.readline, ""):
-            yield stdout_line
-        proc.stdout.close()
-        for stderr_line in iter(proc.stderr.readline, ""):
-            yield stderr_line
-        proc.stderr.close()
-        return_code = proc.wait()
-        if return_code:
-            raise subprocess.CalledProcessError(return_code, docker_run_command)
+    log = simple_logger("subprocess")
+    proc = subprocess.run(
+        shlex.split(cmd), capture_output=True
+    )
+    log.debug("stdout: " + proc.stdout.decode("utf-8"))
+    log.debug("stderr: " + proc.stderr.decode("utf-8"))
 
-    log = simple_logger("dind_run")
-    for output in execute(docker_run_command):
-        log.debug(output)
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(return_code, docker_run_command)
 
 
 def run_trial(
