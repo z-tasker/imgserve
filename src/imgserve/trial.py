@@ -26,7 +26,7 @@ QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.3.0"
 
 @retry(tries=5, backoff=5)
 def run_search(docker_run_command: str) -> None:
-    log = simple_logger("subprocess")
+    log = simple_logger("imgserve.subprocess")
     proc = subprocess.run(
         shlex.split(docker_run_command), capture_output=True
     )
@@ -34,7 +34,7 @@ def run_search(docker_run_command: str) -> None:
     log.debug("stderr: " + proc.stderr.decode("utf-8"))
 
     if proc.returncode != 0:
-        raise subprocess.CalledProcessError(return_code, docker_run_command)
+        raise subprocess.CalledProcessError(proc.returncode, docker_run_command)
 
 
 def run_trial(
