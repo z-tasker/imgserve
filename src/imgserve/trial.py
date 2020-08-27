@@ -149,12 +149,15 @@ def run_trial(
             .joinpath("manifest.json")
         )
         if not trial_run_manifest.is_file():
+            from .pathtree import DisplayablePath
+            paths = DisplayablePath.make_tree(local_data_store)
+
             raise FileNotFoundError(
                 "\n".join(
                     [
                         f"The trial run should have created a manifest file at {trial_run_manifest}, but it did not!",
                         f"here's what was at {local_data_store}:"
-                        "\t" + "\t".join([str(p) for p in local_data_store.iterdir()])
+                        "\n".join([path.displayable for path in paths])
                     ]
                 )
             )
