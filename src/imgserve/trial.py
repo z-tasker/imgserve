@@ -63,7 +63,7 @@ def run_trial(
         Light wrapper around github.com/mgrasker/qloader containerized search gatherer.
         Results are uploaded to S3 in the container, this method will handle indexing the raw image metadata to elasticsearch.
     """
-    log = simple_logger("run_trial")
+    log = simple_logger("imgserve.run_trial")
     trial_timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     shared_metadata = {
         "trial_id": trial_id,
@@ -150,7 +150,12 @@ def run_trial(
         )
         if not trial_run_manifest.is_file():
             raise FileNotFoundError(
-                f"The trial run should have created a manifest file at {trial_run_manifest}, but it did not!"
+                "\n".join(
+                    [
+                        f"The trial run should have created a manifest file at {trial_run_manifest}, but it did not!",
+                        f"here's what was at {local_data_store}:"
+                        "\t" + "\t".join(local_data_store.iterdir())
+                    ]
             )
         index_to_elasticsearch(
             elasticsearch_client=elasticsearch_client,
