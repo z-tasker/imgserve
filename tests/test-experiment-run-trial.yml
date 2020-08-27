@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: test-experiment-run-trial
+  namespace: imgserve
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: comp-syn-experiment-trial
+        image: mgraskertheband/imgserve-experiment:1.0.1
+        imagePullPolicy: Always
+        args:
+        - --experiment-name
+        - "null-test"
+        - --run-trial
+        - --no-prompt
+        - --no-local-data
+        env:
+        - name: ES_CLIENT_FQDN
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: es_client_fqdn
+        - name: ES_CLIENT_PORT
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: es_client_port
+        - name: ES_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: es_username
+        - name: ES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: es_password
+        - name: AWS_BUCKET_NAME
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: aws_bucket_name
+        - name: AWS_REGION_NAME
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: aws_region_name
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: aws_access_key_id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: aws_secret_access_key
+        - name: IMGSERVE_USER_COMPSYN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: imgserve_user_compsyn_password
+        - name: IMGSERVE_USER_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: imgserve_user_admin_password
+        - name: IMGSERVE_LOCAL_DATA_STORE
+          value: /tmp
