@@ -156,8 +156,8 @@ def run_trial(
                 "\n".join(
                     [
                         f"The trial run should have created a manifest file at {trial_run_manifest}, but it did not!",
-                        f"here's what was at {local_data_store}:"
-                        "\n".join([path.displayable() for path in paths])
+                        f"here's what was at {local_data_store}:",
+                        "\n".join([path.displayable() for path in paths]),
                     ]
                 )
             )
