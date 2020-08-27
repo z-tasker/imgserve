@@ -24,7 +24,7 @@ from .vectors import get_vectors
 QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.3.0"
 
 
-@retry(tries=5, backoff=5)
+@retry(tries=5, backoff=2, delay=1)
 def run_search(docker_run_command: str) -> None:
     log = simple_logger("imgserve.subprocess")
     proc = subprocess.run(
