@@ -28,7 +28,7 @@ QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.3.0"
 def run_search(docker_run_command: str) -> None:
     def execute(cmd: str) -> Generator[str, None, None]:
         proc = subprocess.Popen(
-            shlex.split(cmd), stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+            shlex.split(cmd), stdin=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
         for stdout_line in iter(proc.stdout.readline, ""):
             yield stdout_line
