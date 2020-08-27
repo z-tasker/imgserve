@@ -156,6 +156,7 @@ def run_trial(
                         f"here's what was at {local_data_store}:"
                         "\t" + "\t".join(local_data_store.iterdir())
                     ]
+                )
             )
         index_to_elasticsearch(
             elasticsearch_client=elasticsearch_client,
