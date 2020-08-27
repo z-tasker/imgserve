@@ -8,6 +8,8 @@ DEBUG_FORMAT = (
 
 LINE_FORMAT = "[%(asctime)s] (%(name)s)  %(levelname)s: %(message)s"
 
+IMGSERVE_LOG_LEVEL = int(os.getenv("IMGSERVE_LOG_LEVEL", logging.INFO))
+
 # TODO: use a json formatter here, and index errors to elasticsearch for analysis/alerting
 logging.basicConfig(
     level=logging.DEBUG,
@@ -18,7 +20,7 @@ logging.basicConfig(
 )
 
 
-def simple_logger(name: str, level: int = logging.INFO) -> logging.Logger:
+def simple_logger(name: str, level: int = IMGSERVE_LOG_LEVEL) -> logging.Logger:
 
     logger = logging.getLogger(name)
 
