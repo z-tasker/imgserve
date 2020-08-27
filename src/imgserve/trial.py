@@ -154,7 +154,7 @@ def run_trial(
                     [
                         f"The trial run should have created a manifest file at {trial_run_manifest}, but it did not!",
                         f"here's what was at {local_data_store}:"
-                        "\t" + "\t".join(local_data_store.iterdir())
+                        "\t" + "\t".join([str(p) for p in local_data_store.iterdir()])
                     ]
                 )
             )
