@@ -1,22 +1,38 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
 metadata:
-  name: test-experiment-run-trial
+  generateName: test-experiment-run-trial-
   namespace: imgserve
 spec:
-  template:
+  entrypoint: run-trial
+  volumeClaimTemplates:                 
+  - metadata:
+      name: workdir                     
     spec:
-      restartPolicy: Never
-      containers:
-      - name: comp-syn-experiment-trial
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  templates:
+  - name: run-trial
+    securityContext:
+      fsGroup: 1000
+    container:
         image: mgraskertheband/imgserve-experiment:1.0.1
         imagePullPolicy: Always
+        volumeMounts:                     # same syntax as k8s Pod spec
+        - name: workdir
+          mountPath: /mnt/imgserve
+        securityContext:
+          privileged: true
         args:
         - --experiment-name
         - "null-test"
         - --run-trial
         - --no-prompt
         - --no-local-data
+        - --remote-url
+        - "https://comp-syn.ialcloud.xyz"
         env:
         - name: ES_CLIENT_FQDN
           valueFrom:
@@ -68,5 +84,22 @@ spec:
             secretKeyRef:
               name: imgserve-web
               key: imgserve_user_admin_password
+        - name: IMGSERVE_REMOTE_USERNAME
+          value: compsyn
+        - name: IMGSERVE_REMOTE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: imgserve-web
+              key: imgserve_user_compsyn_password
         - name: IMGSERVE_LOCAL_DATA_STORE
-          value: /tmp
+          value: /mnt/imgserve
+        - name: IMGSERVE_LOG_LEVEL
+          value: "10"
+        - name: DOCKER_HOST               
+          value: 127.0.0.1
+    sidecars:
+    - name: dind
+      image: docker:18.09.4-dind
+      securityContext:
+        privileged: true                
+      mirrorVolumeMounts: true

@@ -11,3 +11,4 @@ __pycache__
 jzazbz_array.npy
 qloader.log
 imgserve.log
+*.DS_Store

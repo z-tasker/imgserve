@@ -249,7 +249,7 @@ def get_imgserve_args(
 
     imgserve_parser.add_argument(
         "--remote-url",
-        default="https://compsyn.fourtheye.xyz",
+        default="https://comp-syn.ialcloud.xyz",
         help="url to use for source of experiment data, set to 'localhost:8080' to use local instance of the imgserve app",
     )
     imgserve_parser.add_argument(

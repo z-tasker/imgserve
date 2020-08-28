@@ -9,7 +9,7 @@ IMGSERVE_VERSION=${1}
 
 docker build -t mgraskertheband/imgserve:${IMGSERVE_VERSION} .
 if [ "${2}" == "--push" ]; then
-  docker push mgraskertheband/imgserve:${IMGSERVE_VERSION} 
+  docker push mgraskertheband/imgserve:${IMGSERVE_VERSION}
 fi
 cd app 
 docker build -t mgraskertheband/imgserve-web:${IMGSERVE_VERSION} --build-arg imgserve_version=${IMGSERVE_VERSION} .
@@ -18,7 +18,7 @@ if [ "${2}" == "--push" ]; then
 fi
 cd -
 cd experiment
-docker build -t mgraskertheband/imgserve-experiment:${IMGSERVE_VERSION} --build-arg imgserve_version=${IMGSERVE_VERSION} .
+docker build -t mgraskertheband/imgserve-experiment:${IMGSERVE_VERSION} --build-arg imgserve_version=${IMGSERVE_VERSION} . 
 if [ "${2}" == "--push" ]; then
   docker push mgraskertheband/imgserve-experiment:${IMGSERVE_VERSION} 
 fi

@@ -2,8 +2,10 @@ from __future__ import annotations
 import copy
 import json
 import requests
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from tqdm import tqdm
 
 from elasticsearch import helpers
 
@@ -69,8 +71,9 @@ class Experiment:
         )
         self.log.info(f"initialized")
 
-    def _sync_s3_path(self, path: Path) -> Path:
-        local_path = self.local_data_store.joinpath(path)
+    def _sync_s3_path(self, path: Path, local_path: Optional[Path] = None) -> Path:
+        if local_path is None:
+            local_path = self.local_data_store.joinpath(path)
         if not local_path.is_file():
             local_path.parent.mkdir(exist_ok=True, parents=True)
             local_path.write_bytes(
@@ -78,7 +81,6 @@ class Experiment:
                     s3_client=self.s3_client, bucket_name=self.bucket_name, s3_path=path
                 )
             )
-            self.log.info(f"downloaded {path} from S3")
         return local_path
 
     def _delete_s3_object(self, s3_path: Path) -> None:
@@ -100,6 +102,14 @@ class Experiment:
         ):
             colorgram_document = ColorgramDocument(doc)
             yield colorgram_document
+
+    @property
+    def total_colorgrams(self) -> int:
+        return self.elasticsearch_client.count(index=COLORGRAMS_INDEX_PATTERN, body=self.query)["count"]
+
+    @property
+    def total_raw_images(self) -> int:
+        return self.elasticsearch_client.count(index=RAW_IMAGES_INDEX_PATTERN, body=self.query)["count"]
 
     def get(self, word: str) -> Generator[Tuple[Dict[str, Any], Path], None, None]:
         """
@@ -267,26 +277,25 @@ class Experiment:
 
     def pull(self, pull_raw_images: bool = False) -> None:
         self.log.info(
-            "pulling colorgrams" + (" and raw-images" if pull_raw_images else "")
+            "pulling colorgrams" + (" and raw-images" if pull_raw_images else "") + f" to {self.local_data_store}"
         )
-        pulled_colorgrams = 0
-        for colorgram_document in self.colorgrams:
-            if not self.dry_run:
-                self._sync_s3_path(colorgram_document.path)
-            pulled_colorgrams += 1
-        self.log.info(
-            f"pulled {pulled_colorgrams} colorgrams to {self.local_data_store}"
-        )
+        colorgrams_manifest = list()
+        with tqdm(total=self.total_colorgrams, desc="(colorgrams) Pull") as pbar:
+            for colorgram_document in self.colorgrams:
+                colorgrams_manifest.append(colorgram_document.source)
+                if not self.dry_run:
+                    self._sync_s3_path(colorgram_document.path, local_path=self.local_data_store.joinpath(self.name).joinpath("colorgrams").joinpath(colorgram_document.path.relative_to(self.name)))
+                pbar.update(1)
+
+        manifest_filename = f"colorgrams-{int(time.time())}.json"
+        self.local_data_store.joinpath(self.name).joinpath(manifest_filename).write_text(json.dumps(colorgrams_manifest))
 
         if pull_raw_images:
-            pulled_raw_images = 0
-            for raw_image_document in self.raw_images:
-                if not self.dry_run:
-                    self._sync_s3_path(raw_image_document.path)
-                pulled_raw_images += 1
-            self.log.info(
-                f"pulled {pulled_raw_images} raw images to {self.local_data_store}"
-            )
+            with tqdm(total=self.total_raw_images, desc="(raw images) Pull") as pbar:
+                for raw_image_document in self.raw_images:
+                    if not self.dry_run:
+                        self._sync_s3_path(raw_image_document.path, local_path=self.local_data_store.joinpath(self.name).joinpath("raw-images").joinpath(raw_image_document.path.relative_to("data")))
+                    pbar.update(1)
 
 
 class ImgServe:
