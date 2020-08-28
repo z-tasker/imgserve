@@ -1,0 +1,112 @@
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: top-100-wikipedia-every-6-hours
+  namespace: imgserve
+spec:
+  schedule: "* */6 * * *"
+  concurrencyPolicy: Forbid
+  workflowSpec:
+    podGC:
+      strategy: OnWorkflowSuccess
+    entrypoint: run-trial
+    volumeClaimTemplates:                 
+    - metadata:
+        name: workdir                     
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi                  
+    templates:
+    - name: run-trial
+      securityContext:
+        fsGroup: 1000
+      container:
+          image: mgraskertheband/imgserve-experiment:1.0.1
+          imagePullPolicy: Always
+          volumeMounts:                    
+          - name: workdir
+            mountPath: /mnt/imgserve
+          securityContext:
+            privileged: true
+          args:
+          - --experiment-name
+          - "top-100-wikipedia"
+          - --top-wikipedia-articles
+          - "100"
+          - --run-trial
+          - --no-prompt
+          - --no-local-data
+          - --remote-url
+          - "https://comp-syn.ialcloud.xyz"
+          env:
+          - name: ES_CLIENT_FQDN
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: es_client_fqdn
+          - name: ES_CLIENT_PORT
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: es_client_port
+          - name: ES_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: es_username
+          - name: ES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: es_password
+          - name: AWS_BUCKET_NAME
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: aws_bucket_name
+          - name: AWS_REGION_NAME
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: aws_region_name
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: aws_access_key_id
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: aws_secret_access_key
+          - name: IMGSERVE_USER_COMPSYN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: imgserve_user_compsyn_password
+          - name: IMGSERVE_USER_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: imgserve_user_admin_password
+          - name: IMGSERVE_REMOTE_USERNAME
+            value: compsyn
+          - name: IMGSERVE_REMOTE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: imgserve-web
+                key: imgserve_user_compsyn_password
+          - name: IMGSERVE_LOCAL_DATA_STORE
+            value: /mnt/imgserve
+          - name: IMGSERVE_LOG_LEVEL
+            value: "10"
+          - name: DOCKER_HOST               
+            value: 127.0.0.1
+      sidecars:
+      - name: dind
+        image: docker:18.09.4-dind
+        securityContext:
+          privileged: true                
+        mirrorVolumeMounts: true
