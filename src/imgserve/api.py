@@ -105,17 +105,23 @@ class Experiment:
 
     @property
     def total_colorgrams(self) -> int:
-        return self.elasticsearch_client.count(index=COLORGRAMS_INDEX_PATTERN, body=self.query)["count"]
+        return self.elasticsearch_client.count(
+            index=COLORGRAMS_INDEX_PATTERN, body=self.query
+        )["count"]
 
     @property
     def total_raw_images(self) -> int:
-        return self.elasticsearch_client.count(index=RAW_IMAGES_INDEX_PATTERN, body=self.query)["count"]
+        return self.elasticsearch_client.count(
+            index=RAW_IMAGES_INDEX_PATTERN, body=self.query
+        )["count"]
 
     def get(self, word: str) -> Generator[Tuple[Dict[str, Any], Path], None, None]:
         """
             Get all images associated with a given word for this experiment
         """
-        docs = get_response_value(
+        count = 0
+        self.log.info(f"getting '{word}'")
+        for doc in get_response_value(
             elasticsearch_client=self.elasticsearch_client,
             index="colorgrams",
             query={
@@ -131,14 +137,15 @@ class Experiment:
             value_keys=["hits", "hits"],
             size=100,
             debug=self.debug,
-        )
-        if len(docs) == 0:
-            raise FileNotFoundError(f"No colorgram for {word} from {self.name} found!")
-        if len(docs) > 1:
-            self.log.info(f"more than one colorgram for {word}")
-
-        for doc in docs:
+        ):
+            self.log.info(f"processing {doc}")
             yield (doc, self._sync_s3_path(ColorgramDocument(doc).path))
+            count += 1
+
+        if count == 0:
+            raise FileNotFoundError(f"\"{word}\" from \"{self.name}\" not found!")
+
+        self.log.info(f"{count} colorgram for {word}")
 
     def delete(self) -> None:
         self.log.info(f"deleting raw-images from S3...")
@@ -277,24 +284,38 @@ class Experiment:
 
     def pull(self, pull_raw_images: bool = False) -> None:
         self.log.info(
-            "pulling colorgrams" + (" and raw-images" if pull_raw_images else "") + f" to {self.local_data_store}"
+            "pulling colorgrams"
+            + (" and raw-images" if pull_raw_images else "")
+            + f" to {self.local_data_store}"
         )
         colorgrams_manifest = list()
         with tqdm(total=self.total_colorgrams, desc="(colorgrams) Pull") as pbar:
             for colorgram_document in self.colorgrams:
                 colorgrams_manifest.append(colorgram_document.source)
                 if not self.dry_run:
-                    self._sync_s3_path(colorgram_document.path, local_path=self.local_data_store.joinpath(self.name).joinpath("colorgrams").joinpath(colorgram_document.path.relative_to(self.name)))
+                    self._sync_s3_path(
+                        colorgram_document.path,
+                        local_path=self.local_data_store.joinpath(self.name)
+                        .joinpath("colorgrams")
+                        .joinpath(colorgram_document.path.relative_to(self.name)),
+                    )
                 pbar.update(1)
 
         manifest_filename = f"colorgrams-{int(time.time())}.json"
-        self.local_data_store.joinpath(self.name).joinpath(manifest_filename).write_text(json.dumps(colorgrams_manifest))
+        self.local_data_store.joinpath(self.name).joinpath(
+            manifest_filename
+        ).write_text(json.dumps(colorgrams_manifest))
 
         if pull_raw_images:
             with tqdm(total=self.total_raw_images, desc="(raw images) Pull") as pbar:
                 for raw_image_document in self.raw_images:
                     if not self.dry_run:
-                        self._sync_s3_path(raw_image_document.path, local_path=self.local_data_store.joinpath(self.name).joinpath("raw-images").joinpath(raw_image_document.path.relative_to("data")))
+                        self._sync_s3_path(
+                            raw_image_document.path,
+                            local_path=self.local_data_store.joinpath(self.name)
+                            .joinpath("raw-images")
+                            .joinpath(raw_image_document.path.relative_to("data")),
+                        )
                     pbar.update(1)
 
 

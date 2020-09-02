@@ -9,17 +9,15 @@ body{
 	margin-bottom: 20px;
 }
 
-a.navlink {
-  text-decoration: none;
-  padding: 5px;
-  border: 2px solid gray;
-  color: white;
+.navigation {
+  margin-bottom: 20px;
 }
 
 a.navlink {
   text-decoration: none;
   padding: 5px;
   border: 2px solid gray;
+  color: white;
 }
 
 .banner a {
@@ -54,6 +52,7 @@ a.navlink {
 
 .gallery {
   display: -webkit-inline-box;
+  width: 95%;
   max-height: 100%;
   flex-wrap: wrap;
   padding: 0 4px;
@@ -131,6 +130,7 @@ button {
 
 .colorgram {
     margin: 5px;
+    position: relative;
 }
 
 table {
@@ -150,4 +150,50 @@ table, th, td {
     -moz-appearance:none; /* Firefox */
     -webkit-appearance:none; /* Safari and Chrome */
     appearance:none;
+}
+
+.query {
+  max-height: 100%;
+  flex-wrap: wrap;
+  padding: 0 4px;
+  margin: auto;
+  color: gray;
+}
+
+#experiment-query {
+  background: white;
+  display: block;
+  width: 100px;
+  float: right;
+}
+
+.spinner {
+  position: absolute;
+  display: none;
+  bottom: 8px;
+  left: 16px;
+  height: 50px;
+  width: 50px;
+}
+.spinner img {
+  width: 100%;
+  height: auto;
+}
+
+.status {
+  position: absolute;
+  bottom: 8px;
+  right: 16px;
+  color: gray;
+}
+
+.centered-text {
+  display: none;
+  position: absolute;
+  top: 80%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  color: black;
+  background-color:white;
 }

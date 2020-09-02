@@ -40,9 +40,11 @@ from imgserve import get_experiment_csv_path, STATIC, LOCAL_DATA_STORE
 from imgserve.api import Experiment
 from imgserve.args import get_elasticsearch_args, get_s3_args
 from imgserve.clients import get_clients
+from imgserve.logger import simple_logger
 
 from vectors import get_experiments
 
+log = simple_logger("api")
 
 # Requests will be authenticated by an upstream component, in this case most likely an OAuth2 proxy that adds authentication headers
 class BasicAuthBackend(AuthenticationBackend):
@@ -65,7 +67,7 @@ class BasicAuthBackend(AuthenticationBackend):
         except (AssertionError, KeyError) as exc:
             raise AuthenticationError("Username or Password incorrect for {username}.")
 
-        logging.info(f"authenticated {username}")
+        log.info(f"authenticated {username}")
         return AuthCredentials(["authenticated"]), SimpleUser(username)
 
 
@@ -135,7 +137,7 @@ async def respond_with_404(request: Request, message: str):
 
 
 @app.route("/")
-@requires("authenticated")
+#@requires("authenticated")
 async def home(request: Request):
     template = "home.html"
 
@@ -147,7 +149,7 @@ async def home(request: Request):
 
 
 @app.route("/archive")
-@requires("authenticated", redirect="homepage")
+#@requires("authenticated", redirect="homepage")
 async def archive(request: Request):
     if "experiment" in request.query_params:
         experiment = request.query_params["experiment"]
@@ -168,7 +170,7 @@ async def archive(request: Request):
 
 
 @app.route("/search")
-@requires("authenticated", redirect="homepage")
+#@requires("authenticated", redirect="homepage")
 async def search(request: Request):
     template = "search.html"
 
@@ -178,8 +180,8 @@ async def search(request: Request):
     return templates.TemplateResponse(template, context)
 
 
-@requires("authenticated", redirect="homepage")
 @app.route("/sketch")
+#@requires("authenticated", redirect="homepage")
 async def sketch(request: Request):
 
     default_experiment = None
@@ -198,6 +200,20 @@ async def sketch(request: Request):
         if default_experiment is not None
         else "concreteness",
         "experiments": experiments,
+    }
+    return templates.TemplateResponse(template, context)
+
+
+@app.route("/search")
+#@requires("authenticated", redirect="homepage")
+async def search(request: Request):
+
+    template = "search.html"
+
+    #experiments = get_experiments(ELASTICSEARCH_CLIENT)
+
+    context = {
+        "request": request,
     }
     return templates.TemplateResponse(template, context)
 
@@ -225,50 +241,79 @@ async def experiments_listener(websocket: WebSocket):
 
     await websocket.accept()
     request = await websocket.receive_json()
+    if "single_value" not in request:
+        request["single_value"] = True
 
-    logging.info("processing websocket request")
+    log.info("processing websocket request")
 
     if await valid_webhook_request(websocket, request, required_keys=["action"]):
         if request["action"] == "get":
             if await valid_webhook_request(
                 websocket, request, required_keys=["experiment", "get"]
             ):
-                experiment = Experiment(
-                    bucket_name=S3_BUCKET,
-                    elasticsearch_client=ELASTICSEARCH_CLIENT,
-                    local_data_store=Path("static/data"),
-                    name=request["experiment"],
-                    s3_client=S3_CLIENT,
-                    debug=DEBUG,
-                )
-                try:
-                    found = [
-                        {
-                            "doc": doc,
-                            "image_bytes": base64.b64encode(
-                                img_path.read_bytes()
-                            ).decode("utf-8"),
-                        }
-                        for doc, img_path in experiment.get(request["get"].lower())
-                    ]
-                except FileNotFoundError as e:
-                    logging.info(f"no match for get {e}")
-                    await websocket.send_json(
-                        {
-                            "status": 404,
-                            "message": "no colorgram for search term",
-                            "query": request["get"],
-                            "experiment": experiment.name,
-                        }
+                if request["experiment"] is None:
+                    found = list()
+                    for experiment_name in experiments.keys():
+                        experiment = Experiment(
+                            bucket_name=S3_BUCKET,
+                            elasticsearch_client=ELASTICSEARCH_CLIENT,
+                            local_data_store=Path("static/data"),
+                            name=experiment_name,
+                            s3_client=S3_CLIENT,
+                            debug=DEBUG,
+                        )
+                        try:
+                            found.extend(
+                                [
+                                    {
+                                        "doc": doc,
+                                        "image_bytes": base64.b64encode(
+                                            img_path.read_bytes()
+                                        ).decode("utf-8"),
+                                    }
+                                    for doc, img_path in experiment.get(request["get"].lower())
+                                ]
+                            )
+                        except FileNotFoundError as e:
+                            log.info(f"no match for get request '{e}'")
+                else:
+                    experiment = Experiment(
+                        bucket_name=S3_BUCKET,
+                        elasticsearch_client=ELASTICSEARCH_CLIENT,
+                        local_data_store=Path("static/data"),
+                        name=request["experiment"],
+                        s3_client=S3_CLIENT,
+                        debug=DEBUG,
                     )
-                    return
+                    try:
+                        found = [
+                            {
+                                "doc": doc,
+                                "image_bytes": base64.b64encode(
+                                    img_path.read_bytes()
+                                ).decode("utf-8"),
+                            }
+                            for doc, img_path in experiment.get(request["get"].lower())
+                        ]
+                    except FileNotFoundError as e:
+                        log.info(f"no match for get request '{e}'")
+                        found = list()
 
-                resp = {"status": 200, "found": found[0]}
-                clean_resp = copy.deepcopy(resp)
-                del clean_resp["found"]["doc"]["_source"]["downloads"]
-                del clean_resp["found"]["image_bytes"]
-                logging.info(f"sending JSON response through websocket: {clean_resp}")
+                if len(found) > 0:
+                    resp = {
+                        "status": 200, 
+                        "found": found[0] if request["single_value"] else found
+                    }
+                else: 
+                    resp = {
+                        "status": 404,
+                        "message": "no colorgram for search term",
+                        "query": request["get"],
+                        "experiment": request["experiment"],
+                    }
+                log.info(f"sending JSON response through websocket with keys: {resp.keys()}")
                 await websocket.send_json(resp)
+
         elif request["action"] == "list_experiments":
             await websocket.send_json(
                 {"status": 200, "experiments": list(experiments.keys())}
@@ -279,63 +324,9 @@ async def experiments_listener(websocket: WebSocket):
             )
 
 
-@app.route("/langip_grids_{langip_name}")
-@requires("authenticated", redirect="homepage")
-async def langip_grids(request: Request):
-    template = "langip.html"
-
-    colorgrams = defaultdict(dict)
-    experiment = Path(request["path"]).name
-    all_colorgrams = sorted(
-        [
-            f.stem
-            for f in Path(__file__)
-            .parent.joinpath(f"static/img/colorgrams/{experiment}")
-            .iterdir()
-        ]
-    )
-    eng_refs = defaultdict(list)
-    for cg in all_colorgrams:
-        dimensions = {dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|")}
-        eng_refs[dimensions["eng_ref"]].append(dimensions["query"])
-        colorgrams[dimensions["query"]][cg] = ", ".join(
-            [f"{value}" for attr, value in sorted(dimensions.items())]
-        )
-
-    queries = list(colorgrams.keys())
-
-    # manually order
-
-    eng_ref_sorted = dict()
-    for eng_ref in eng_refs:
-        manually_ordered = defaultdict(dict)
-        for region in ["fra1", "ams3", "nyc1", "blr1", "sgp1"]:
-            queries = list(eng_refs[eng_ref])
-            eng_center = list()
-            for query in queries:
-                if query == eng_ref:
-                    continue
-                eng_center.append(query)
-            eng_center.insert(2, eng_ref)
-            for query in eng_center:
-                for col, val in colorgrams[query].items():
-                    if region in val:
-                        manually_ordered[query][col] = val
-        eng_ref_sorted[eng_ref] = manually_ordered
-
-    context = {
-        "experiment": experiment,
-        "request": request,
-        "queries": queries,
-        "colorgrams": eng_ref_sorted,
-        "raw_data_link": get_raw_data_link(experiment),
-    }
-    return templates.TemplateResponse(template, context)
-
-
 @app.route("/experiments/{experiment_name}")
-@requires("authenticated", redirect="homepage")
-async def experiment_csv(request: Request) -> Response:
+#@requires("authenticated", redirect="homepage")
+async def experiment_csv(request: Request) -> JSONResponse:
 
     experiment_name = request.path_params["experiment_name"]
 
@@ -347,7 +338,7 @@ async def experiment_csv(request: Request) -> Response:
         )
         status_code = 200
     except FileNotFoundError as e:
-        logging.error(f"{experiment_name}: {e}")
+        log.error(f"{experiment_name}: {e}")
         status_code = 404
         response = {
             "missing": experiment_name,
@@ -358,7 +349,7 @@ async def experiment_csv(request: Request) -> Response:
             ],
         }
     except KeyError as e:
-        logging.error(f"{experiment_name}: {e}")
+        log.error(f"{experiment_name}: {e}")
         status_code = 422
         response = {
             "invalid": experiment_name,
@@ -366,43 +357,6 @@ async def experiment_csv(request: Request) -> Response:
         }
 
     return JSONResponse(response, status_code=status_code)
-
-
-@app.route("/results/{experiment}")
-@requires("authenticated", redirect="homepage")
-async def generated(request: Request):
-    template = "results.html"
-
-    colorgrams = defaultdict(dict)
-    experiment = Path(request["path"]).name
-    try:
-        all_colorgrams = sorted(
-            [
-                f.stem
-                for f in Path(__file__)
-                .parent.joinpath(f"static/img/colorgrams/{experiment}")
-                .iterdir()
-            ]
-        )
-    except FileNotFoundError as e:
-        return await respond_with_404(request=request, message=str(e))
-
-    for cg in all_colorgrams:
-        dimensions = {dim.split("=")[0]: dim.split("=")[1] for dim in cg.split("|")}
-        colorgrams[dimensions["query"]][cg] = ", ".join(
-            [f"{value}" for attr, value in sorted(dimensions.items())]
-        )
-
-    queries = list(colorgrams.keys())
-
-    context = {
-        "experiment": experiment,
-        "request": request,
-        "queries": queries,
-        "colorgrams": colorgrams,
-        "raw_data_link": get_raw_data_link(experiment),
-    }
-    return templates.TemplateResponse(template, context)
 
 
 if __name__ == "__main__":
@@ -422,4 +376,4 @@ if __name__ == "__main__":
     S3_BUCKET = args.s3_bucket
     DEBUG = args.debug
 
-    uvicorn.run(app, host="0.0.0.0", port=8080, proxy_headers=True)
+    uvicorn.run(app, host="localhost", port=8080, proxy_headers=True)

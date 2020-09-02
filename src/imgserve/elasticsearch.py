@@ -191,18 +191,41 @@ def get_response_value(
     value_keys: List[str],
     size: int = 0,
     debug: bool = False,
-) -> Any:
-    resp = elasticsearch_client.search(index=index, body=query, size=size)
-
+    drop_in: bool = False,
+    composite_aggregation_name: Optional[str] = None,
+) -> Union[Any, Generator[Any]]:
     log.info(f"retrieving value from query against {index} at {value_keys}")
     if debug:
         print(f"GET /{index}/_search?size={size}\n{json.dumps(query,indent=2)}")
 
-    values = [value for value in recurse_splat_key(resp, value_keys)]
+    resp = elasticsearch_client.search(index=index, body=query, size=size)
 
-    if len(values) == 0:
-        values = None
-    elif len(values) == 1:
-        values = values[0]
+    if composite_aggregation_name is not None:
+        try:
+            after_key = resp["aggregations"][composite_aggregation_name]["after_key"]
+        except KeyError as exc:
+            raise KeyError(
+                f"No composite aggregation continuation key found at '{composite_aggregation_name}'"
+            ) from exc
+        values = 0
+        while len(list(recurse_splat_key(resp, value_keys))) > 0:
+            for value in recurse_splat_key(resp, value_keys):
+                yield value
+                values += 1
 
-    return values
+            query["aggregations"][composite_aggregation_name]["composite"].update(
+                after=after_key
+            )
+            resp = elasticsearch_client.search(index=index, body=query, size=size)
+        log.info(f"composite aggregation yielded {values} values")
+
+    else:
+        values = [value for value in recurse_splat_key(resp, value_keys)]
+
+        if len(values) == 0:
+            values = None
+        elif len(values) == 1:
+            values = values[0]
+
+        log.info(f"query returned {len(values) if values is not None else 0} values")
+        yield from values

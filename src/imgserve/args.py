@@ -158,7 +158,17 @@ def get_experiment_args(
         type=Path,
         help="export colorgram documents as a JSON list",
     )
+    mode.add_argument(
+        "--get-unique-images",
+        action="store_true",
+        help="Gather unique images by using image_url as the source of cross-trial image identity",
+    )
 
+    experiment_parser.add_argument(
+        "--fresh-url-download",
+        action="store_true",
+        help="Where possible, download the image from the source URL for highest-fi image version",
+    )
     experiment_parser.add_argument(
         "--trial-ids",
         required=False,

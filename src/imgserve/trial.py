@@ -58,7 +58,7 @@ def run_trial(
     run_user_browser_scrape: bool = False,
     skip_already_searched: bool = False,
     skip_vectors: bool = False,
-    query_timeout: int = 300
+    query_timeout: int = 300,
 ) -> None:
     """
         Light wrapper around github.com/mgrasker/qloader containerized search gatherer.
@@ -138,7 +138,9 @@ def run_trial(
             try:
                 run_search(docker_run_command, timeout=query_timeout)
             except subprocess.TimeoutExpired as e:
-                log.error(f"Query for {search_term} took longer than {query_timeout}, skipping.")
+                log.error(
+                    f"Query for {search_term} took longer than {query_timeout}, skipping."
+                )
                 continue
 
         query_downloads = (
@@ -155,6 +157,7 @@ def run_trial(
         )
         if not trial_run_manifest.is_file():
             from .pathtree import DisplayablePath
+
             paths = DisplayablePath.make_tree(local_data_store)
 
             raise FileNotFoundError(

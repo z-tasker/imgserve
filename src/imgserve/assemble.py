@@ -95,11 +95,7 @@ def assemble_downloads(
         field_values_query = {"query": {"match_all": {}}}
     field_values = {
         field: list(
-            all_field_values(
-                elasticsearch_client,
-                field,
-                query=field_values_query
-            )
+            all_field_values(elasticsearch_client, field, query=field_values_query)
         )
         for field in dimensions
     }
