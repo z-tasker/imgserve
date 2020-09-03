@@ -40,6 +40,7 @@ from imgserve import get_experiment_csv_path, STATIC, LOCAL_DATA_STORE
 from imgserve.api import Experiment
 from imgserve.args import get_elasticsearch_args, get_s3_args
 from imgserve.clients import get_clients
+from imgserve.elasticsearch import get_response_value
 from imgserve.logger import simple_logger
 
 from vectors import get_experiments
@@ -141,7 +142,7 @@ async def respond_with_404(request: Request, message: str):
 async def home(request: Request):
     template = "home.html"
 
-    experiments = get_experiments(ELASTICSEARCH_CLIENT)
+    experiments = get_experiments(ELASTICSEARCH_CLIENT, debug=DEBUG)
     results = [p.name for p in Path("static/img/colorgrams").glob("*")]
 
     context = {"request": request, "experiments": experiments, "results": results}
@@ -318,6 +319,39 @@ async def experiments_listener(websocket: WebSocket):
             await websocket.send_json(
                 {"status": 200, "experiments": list(experiments.keys())}
             )
+        elif request["action"] == "list_image_urls":
+            image_urls = [ 
+                image_url 
+                for image_url in get_response_value(
+                    elasticsearch_client=ELASTICSEARCH_CLIENT,
+                    index="raw-images",
+                    query={
+                        "query": {
+                            "bool": {
+                                "filter": request["filter"]
+                            }
+                        },
+                        "aggregations": {
+                            "image_url": {
+                                "terms": {
+                                    "field": "image_url",
+                                    "size": 1000,
+                                }
+                            }
+                        }
+                    },
+                    value_keys=["aggregations", "image_url", "buckets", "*", "key"],
+                    size=0,
+                    debug=True,
+                )
+            ]
+            log.info(image_urls)
+            await websocket.send_json(
+                {"status": 200, "image_urls": image_urls}
+            )
+
+            
+            
         else:
             await websocket.send_json(
                 {"status": 404, "message": f"no action found for {request['action']}"}

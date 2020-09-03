@@ -225,7 +225,8 @@ def get_response_value(
         if len(values) == 0:
             values = None
         elif len(values) == 1:
-            values = values[0]
+            yield values[0]
+        else:
+            yield from values
 
         log.info(f"query returned {len(values) if values is not None else 0} values")
-        yield from values

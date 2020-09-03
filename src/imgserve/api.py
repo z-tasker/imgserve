@@ -121,7 +121,7 @@ class Experiment:
         """
         count = 0
         self.log.info(f"getting '{word}'")
-        for doc in get_response_value(
+        for docs in get_response_value(
             elasticsearch_client=self.elasticsearch_client,
             index="colorgrams",
             query={
@@ -138,9 +138,10 @@ class Experiment:
             size=100,
             debug=self.debug,
         ):
-            self.log.info(f"processing {doc}")
-            yield (doc, self._sync_s3_path(ColorgramDocument(doc).path))
-            count += 1
+            for doc in docs:
+                self.log.info(f"processing {doc}")
+                yield (doc, self._sync_s3_path(ColorgramDocument(doc).path))
+                count += 1
 
         if count == 0:
             raise FileNotFoundError(f"\"{word}\" from \"{self.name}\" not found!")

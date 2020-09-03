@@ -5,6 +5,7 @@ body{
 }
 
 .banner {
+  display: block;
 	width:100%;
 	margin-bottom: 20px;
 }
@@ -128,6 +129,11 @@ button {
   border: 2px solid green;
 }
 
+.raw-image {
+  margin: 5px;
+  position: relative;
+}
+
 .colorgram {
     margin: 5px;
     position: relative;
@@ -190,10 +196,79 @@ table, th, td {
 .centered-text {
   display: none;
   position: absolute;
-  top: 80%;
+  top: 50%;
   left: 50%;
+  width: 100%;
   transform: translate(-50%, -50%);
   font-size: 12px;
   color: black;
   background-color:white;
+}
+
+.sidebar {
+  display: block;
+  position: absolute;
+  top: 90px;
+  right: 0px;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.83);
+  z-index: 100;
+}
+
+.sidebar pre {
+  display: inline;
+}
+
+.download-link {
+  display: block;
+  position: relative;
+  color: white;
+  border: 2px solid gray;
+  z-index: 100;
+}
+
+.download-link:hover {
+  background-color: green;
+}
+
+.doc-wrapper {
+  width: 100%;
+  display: none;
+  position: relative;
+  text-align: left;
+}
+
+.img-focus {
+  float: left;
+  width: 50%;
+  height: auto;
+      display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.img-focus img {
+    flex-shrink: 0;
+    min-width: 75%;
+    max-height: 80%;
+    margin: 10px auto;
+}
+
+.doc {
+  float: right;
+  color: white;
+  display: inline-block;
+  width: 40%;
+}
+
+.back-button {
+  z-index: 1000;
+  float: left;
+  width: 98%;
+  border: none;
+  margin-left: 20px;
+}
+
+.back-button:hover {
+  background-color: rgba(255, 255, 255, 0.65);
 }

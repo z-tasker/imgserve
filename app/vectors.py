@@ -12,42 +12,48 @@ def get_experiment_metadata(
     elasticsearch_client: Elasticsearch, experiment_name: str, debug: bool = False
 ) -> Dict[str, Any]:
     return {
-        "colorgrams": get_response_value(
-            elasticsearch_client=elasticsearch_client,
-            index="colorgrams",
-            query={
-                "query": {
-                    "bool": {"must": {"term": {"experiment_name": experiment_name}}}
+        "colorgrams": next(
+            get_response_value(
+                elasticsearch_client=elasticsearch_client,
+                index="colorgrams",
+                query={
+                    "query": {
+                        "bool": {"must": {"term": {"experiment_name": experiment_name}}}
+                    },
+                    "aggs": {"count": {"value_count": {"field": "query.keyword"}}},
                 },
-                "aggs": {"count": {"value_count": {"field": "query.keyword"}}},
-            },
-            value_keys=["aggregations", "count", "value"],
-            debug=debug,
+                value_keys=["aggregations", "count", "value"],
+                debug=debug,
+            )
         ),
-        "raw-images": get_response_value(
-            elasticsearch_client=elasticsearch_client,
-            index="raw-images",
-            query={
-                "query": {
-                    "bool": {"must": {"term": {"experiment_name": experiment_name}}}
-                },
-                "aggs": {"count": {"value_count": {"field": "query"}}},
-            },
-            value_keys=["aggregations", "count", "value"],
-            debug=debug,
-        ),
-        "dimensions": fields_in_hits(
+        "raw-images": next(
             get_response_value(
                 elasticsearch_client=elasticsearch_client,
                 index="raw-images",
                 query={
                     "query": {
                         "bool": {"must": {"term": {"experiment_name": experiment_name}}}
-                    }
+                    },
+                    "aggs": {"count": {"value_count": {"field": "query"}}},
                 },
-                value_keys=["hits", "hits"],
-                size=10,
+                value_keys=["aggregations", "count", "value"],
                 debug=debug,
+            )
+        ),
+        "dimensions": fields_in_hits(
+            next(
+                get_response_value(
+                    elasticsearch_client=elasticsearch_client,
+                    index="raw-images",
+                    query={
+                        "query": {
+                            "bool": {"must": {"term": {"experiment_name": experiment_name}}}
+                        }
+                    },
+                    value_keys=["hits", "hits"],
+                    size=10,
+                    debug=debug,
+                )
             )
         ),
         "timestamps": set(

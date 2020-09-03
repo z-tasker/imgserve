@@ -16,10 +16,6 @@
       <tr>
         <td>
           {{ experiment_name }}
-          <br>
-          <a href=/sketch?default_experiment={{ experiment_name }}>🗓</a>
-          <a href=/archive?experiment={{ experiment_name }}>🗄️</a>
-          <a href=/results/{{ experiment_name }}>results</a>
         </td>
         <td>{{ experiment_info["colorgrams"] }}</td>
         <td>{{ experiment_info["raw-images"] }}</td>
@@ -28,13 +24,6 @@
       </tr>
       {% endfor %}
     </table>
-    <h2>results</h2>
-    <ul>
-    {% for result in results %}
-    <div>
-      <li><a href="/results/{{ result }}">{{ result.replace("_", " ").replace("-", " ") }}</a></li>
-    </div>
-    {% endfor %}
     </ul>
   </div>
 </main>
