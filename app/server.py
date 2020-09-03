@@ -410,4 +410,4 @@ if __name__ == "__main__":
     S3_BUCKET = args.s3_bucket
     DEBUG = args.debug
 
-    uvicorn.run(app, host="localhost", port=8080, proxy_headers=True)
+    uvicorn.run(app, host="0.0.0.0", port=8080, proxy_headers=True)
