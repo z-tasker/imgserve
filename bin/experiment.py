@@ -17,6 +17,7 @@ from imgserve.args import (
     get_elasticsearch_args,
     get_experiment_args,
     get_imgserve_args,
+    get_mturk_args,
     get_s3_args,
 )
 from imgserve.clients import get_clients
@@ -39,6 +40,7 @@ def parse_args() -> argparse.Namespace:
 
     get_elasticsearch_args(parser)
     get_s3_args(parser)
+    get_mturk_args(parser)
     get_experiment_args(parser)
     get_imgserve_args(parser)
 
@@ -74,6 +76,7 @@ def main(args: argparse.Namespace) -> None:
     log.info(f"starting {args.experiment_name}...")
 
     elasticsearch_client, s3_client = get_clients(args)
+    mturk_client = get_mturk_client(args)
 
     experiment = Experiment(
         bucket_name=args.s3_bucket,
@@ -186,7 +189,16 @@ def main(args: argparse.Namespace) -> None:
             no_local_data=args.no_local_data,
             run_user_browser_scrape=args.run_user_browser_scrape,
             skip_already_searched=args.skip_already_searched,
+            skip_face_detection=args.skip_face_detection,
+            skip_mturk_hit_creation=args.skip_mturk_hit_creation,
+            mturk_client=mturk_client,
+            mturk_in_realtime=args.mturk_in_realtime,
+            mturk_hit_type_id=args.mturk_hit_type_id,
+            mturk_hit_layout_id=args.mturk_hit_layout_id,
+            mturk_s3_bucket_name=args.mturk_s3_bucket_name,
             skip_vectors=args.skip_vectors,
+            query_timeout=300,
+            no_compress=args.no_compress
         )
 
         log.info(f"image gathering completed")
@@ -342,6 +354,58 @@ def main(args: argparse.Namespace) -> None:
             del colorgram_document.source["downloads"]
             vectors.append(colorgram_document.source)
         args.export_vectors_to.write_text(json.dumps(vectors, indent=2))
+
+    if args.get_unique_images:
+        for image_url in get_response_value(
+            elasticsearch_client=elasticsearch_client,
+            index="raw-images",
+            query={
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"range": {"trial_timestamp": {"gte": "now-10y"}}},
+                            {"term": {"experiment_name": args.experiment_name}},
+                        ]
+                    }
+                },
+                "aggregations": {
+                    "image_url": {
+                        "composite": {
+                            "size": 500,
+                            "sources": [
+                                {"image_url": {"terms": {"field": "image_url",},}},
+                            ],
+                        }
+                    }
+                },
+            },
+            value_keys=[
+                "aggregations",
+                "image_url",
+                "buckets",
+                "*",
+                "key",
+                "image_url",
+            ],
+            size=0,
+            debug=True,
+            composite_aggregation_name="image_url",
+        ):
+            # can either download fresh for hi-fi, or collect from existing
+            if args.fresh_url_download:
+                path = (
+                    args.local_data_store.joinpath(args.experiment_name)
+                    .joinpath("original")
+                    .joinpath(hashlib.sha244(image_url.encode("utf-8")).hexdigest())
+                )
+                log.info(f"downloading {image_url}")
+                download_image(url=image_url, path=path)
+            else:
+                # get an s3 path for one of the images. S3 Paths for raw images should be hashes of their url, would de-duplicate
+                # can track last modified to determine if a new one is needed? or hash something?
+                # with this strategy, all experiments could share a common image store. Huge efficiency for the timeseries data.
+                pass
+            
 
 
 if __name__ == "__main__":

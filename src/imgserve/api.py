@@ -3,6 +3,7 @@ import copy
 import json
 import requests
 import time
+from collections import UserDict
 from dataclasses import dataclass
 from pathlib import Path
 from tqdm import tqdm
@@ -25,7 +26,7 @@ from .logger import simple_logger
 from .s3 import get_s3_bytes
 
 
-class RawImageDocument:
+class RawImageDocument(UserDict):
     def __init__(self, doc: Dict[str, Any]) -> None:
         self.doc = doc
         self.source = self.doc["_source"]
@@ -41,11 +42,24 @@ class RawImageDocument:
         )
 
 
-class ColorgramDocument:
+class CroppedFaceImageDocument(UserDict):
+    def __init__(self, doc: Dict[str, Any]) -> None:
+        self.doc = doc
+        self.source = self.doc["_source"]
+        self.path = Path(self.source["experiment_name"]).joinpath("faces").joinpath(self.source["face_id"])
+
+
+class ColorgramDocument(UserDict):
     def __init__(self, doc: Dict[str, Any]) -> None:
         self.doc = doc
         self.source = self.doc["_source"]
         self.path = Path(self.source["experiment_name"]).joinpath(self.source["s3_key"])
+
+
+class MturkHitDocument(UserDict):
+    def __init__(self, doc: Dict[str, Any]) -> None:
+        self.doc = doc
+        self.source = self.doc["_source"]
 
 
 @dataclass

@@ -20,11 +20,12 @@ log = simple_logger("imgserve.elasticsearch")
 
 COLORGRAMS_INDEX_PATTERN = "colorgrams"
 RAW_IMAGES_INDEX_PATTERN = "raw-images"
+CROPPED_FACE_INDEX_PATTERN = "cropped-face"
 
 
 def _overridable_template_paths() -> Dict[str, Any]:
     template_paths = dict()
-    for index in ["colorgrams", "raw-images", "hosts"]:
+    for index in ["colorgrams", "raw-images", "hosts", "cropped-face-images", "mturk-hits"]:
         template = json.loads(
             Path(__file__).parents[2].joinpath(f"db/{index}.template.json").read_text()
         )
@@ -114,6 +115,7 @@ def doc_gen(
     yielded = 0
     exists = 0
     for doc in docs:
+        doc = dict(doc) # convert Index classes to plain dictionaries for Elasticsearch API
         if identity_fields is not None and document_exists(
             elasticsearch_client, doc, index, identity_fields, overwrite
         ):
@@ -168,10 +170,10 @@ def index_to_elasticsearch(
 
 @retry(tries=3, backoff=5, delay=2)
 def all_field_values(
-    elasticsearch_client: Elasticsearch, field: str, query: Dict[str, Any]
+    elasticsearch_client: Elasticsearch, field: str, query: Dict[str, Any], index_pattern: str = RAW_IMAGES_INDEX_PATTERN
 ) -> Generator[str, None, None]:
 
-    s = Search(using=elasticsearch_client, index=RAW_IMAGES_INDEX_PATTERN)
+    s = Search(using=elasticsearch_client, index=index_pattern)
     agg = {"aggs": {"all_values": {"terms": {"field": field, "size": 100000}}}}
     agg["query"] = query["query"]
     s.update_from_dict(agg)

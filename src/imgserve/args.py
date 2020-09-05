@@ -91,6 +91,55 @@ def get_s3_args(
     return parser
 
 
+def get_mturk_args(
+    parser: Optional[argparse.ArgumentParser] = None,
+) -> argparse.ArgumentParser
+
+    if parser is None:
+        parser = argparse.ArgumentParser()
+
+    mturk_parser = parser.add_argument_group("mturk")
+
+    mturk_parser.add_argument(
+        "--mturk-access-key-id",
+        type=str,
+        default=os.getenv("MTURK_ACCESS_KEY_ID", os.getenv("AWS_ACCESS_KEY_ID", None)),
+        required=True,
+    )
+    mturk_parser.add_argument(
+        "--mturk-secret-access-key",
+        type=str,
+        default=os.getenv("MTURK_SECRET_ACCESS_KEY", os.getenv("AWS_SECRET_ACCESS_KEY", None)),
+        required=True,
+    )
+    mturk_parser.add_argument(
+        "--mturk-hit-type-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-hit-layout-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--create-mturk-hits",
+        action="store_false",
+        dest="skip_mturk_hit_creation",
+    )
+    mturk_parser.add_argument(
+        "--mturk-in-realtime",
+        action="store_true",
+        help="Create Mturk HITs at search time, default behaviour only creates mturk_hit_documents in Elasticsearch"
+    )
+    mturk_parser.add_argument(
+        "--mturk-s3-bucket-name",
+        type=str,
+        required=False
+    )
+
+    return parser
+
 def get_experiment_args(
     parser: Optional[argparse.ArgumentParser] = None,
 ) -> argparse.ArgumentParser:
@@ -278,6 +327,11 @@ def get_imgserve_args(
         required=False,
         help="optionally slice experiment in multiple pieces for distributed running",
     )
+    imgserve_parser.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Do not compress images before mirroring them to S3. Default behaviour is to compress to 300x300 (stretch to fit)."
+    )
     return parser
 
 
@@ -314,3 +368,19 @@ def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clien
         aws_secret_access_key=args.s3_secret_access_key,
     )
     return elasticsearch_client, s3_client
+
+def get_mturk_client(args: argparse.Namespace) -> botocore.clients.mturk:
+    if not args.skip_mturk_hit_creation:
+        missing = list()
+        for required in ["mturk_hit_type_id", "mturk_hit_layout_id", "mturk_access_key_id", "mturk_secret_access_key"]:
+            if getattr(args, required) is None:
+                missing.append(required)
+
+        if len(missing) >= 0:
+            raise MissingArgumentsError(",".join(required) + " are required arguments if --create-mturk-hits is set")
+
+        return boto3.client(
+            "mturk",
+            aws_access_key_id=args.mturk_access_key_id,
+            aws_secret_access_key=args.mturk_secret_access_key,
+        )

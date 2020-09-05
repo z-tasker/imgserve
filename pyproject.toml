@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "imgserve"
-version = "2.0.0"
+version = "2.1.0"
 description = "Loop experiments involving the internet"
 authors = ["Loop Fellow <loops@ialcloud.xyz>"]
 
