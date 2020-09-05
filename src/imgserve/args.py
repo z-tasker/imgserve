@@ -101,6 +101,11 @@ def get_mturk_args(
     mturk_parser = parser.add_argument_group("mturk")
 
     mturk_parser.add_argument(
+        "--mturk-s3-bucket-name",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
         "--mturk-access-key-id",
         type=str,
         default=os.getenv("MTURK_ACCESS_KEY_ID", os.getenv("AWS_ACCESS_KEY_ID", None)),
@@ -113,19 +118,34 @@ def get_mturk_args(
         required=True,
     )
     mturk_parser.add_argument(
-        "--mturk-hit-type-id",
+        "--mturk-cropped-face-images-hit-type-id",
         type=str,
         required=False
     )
     mturk_parser.add_argument(
-        "--mturk-hit-layout-id",
+        "--mturk-cropped-face-images-hit-layout-id",
         type=str,
         required=False
     )
     mturk_parser.add_argument(
-        "--create-mturk-hits",
-        action="store_false",
-        dest="skip_mturk_hit_creation",
+        "--mturk-raw-images-hit-type-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-raw-images-hit-layout-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-colorgrams-hit-type-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-colorgrams-hit-layout-id",
+        type=str,
+        required=False
     )
     mturk_parser.add_argument(
         "--mturk-in-realtime",
@@ -133,9 +153,19 @@ def get_mturk_args(
         help="Create Mturk HITs at search time, default behaviour only creates mturk_hit_documents in Elasticsearch"
     )
     mturk_parser.add_argument(
-        "--mturk-s3-bucket-name",
-        type=str,
-        required=False
+        "--create-mturk-cropped-face-images-hits",
+        action="store_false",
+        dest="skip_mturk_cropped_face_images",
+    )
+    mturk_parser.add_argument(
+        "--create-mturk-raw-images-hits",
+        action="store_false",
+        dest="skip_mturk_raw_images",
+    )
+    mturk_parser.add_argument(
+        "--create-mturk-colorgrams-hits",
+        action="store_false",
+        dest="skip_mturk_colorgrams",
     )
 
     return parser
@@ -332,6 +362,12 @@ def get_imgserve_args(
         action="store_true",
         help="Do not compress images before mirroring them to S3. Default behaviour is to compress to 300x300 (stretch to fit)."
     )
+    imgserve_parser.add_argument(
+        "--extract-faces",
+        dest="skip_face_detection",
+        action="store_false"
+        help="Extract faces from raw images and store in their own index in Elasticsearch",
+    )
     return parser
 
 
@@ -369,18 +405,44 @@ def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clien
     )
     return elasticsearch_client, s3_client
 
-def get_mturk_client(args: argparse.Namespace) -> botocore.clients.mturk:
-    if not args.skip_mturk_hit_creation:
-        missing = list()
-        for required in ["mturk_hit_type_id", "mturk_hit_layout_id", "mturk_access_key_id", "mturk_secret_access_key"]:
-            if getattr(args, required) is None:
-                missing.append(required)
+def get_mturk_client(args: argparse.Namespace) -> Optional[botocore.clients.mturk]:
 
-        if len(missing) >= 0:
-            raise MissingArgumentsError(",".join(required) + " are required arguments if --create-mturk-hits is set")
+    arg_issues = list()
+    if args.skip_face_detection:
+        if args.skip_mturk_cropped_face_images:
+            arg_issues.append("Cannot create cropped face HITs while skipping face detection")
 
-        return boto3.client(
+    if args.mturk_s3_bucket_name is None:
+        args.mturk_s3_bucket_name = args.s3_bucket_name
+
+    create_client = False
+    for mturk_target in ["raw_images", "cropped_face_images", "colorgrams"]:
+        if not getattr(args, f"skip_mturk_{mturk_target}"):
+            create_client = True # only create client if one of the mturk flags is set
+            missing = list()
+            for required in [
+                f"mturk_{mturk_target}_hit_type_id", 
+                f"mturk_{mturk_target}_hit_layout_id", 
+                f"mturk_access_key_id", 
+                f"mturk_secret_access_key"
+            ]:
+                if getattr(args, required) is None:
+                    missing.append(required)
+
+            if len(missing) >= 0:
+                arg_issues.append(
+                    ",".join(required) + f" are required arguments when --create-mturk-{mturk_target.replace('_', '-')}-hits is set"
+                )
+
+    if len(arg_issues) > 0:
+        raise MissingArgumentsError("\nAND\n".join(arg_issues))
+
+    if create_client:
+        ret = boto3.client(
             "mturk",
             aws_access_key_id=args.mturk_access_key_id,
             aws_secret_access_key=args.mturk_secret_access_key,
         )
+    else:
+        ret = None
+    return ret

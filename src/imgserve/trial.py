@@ -61,7 +61,9 @@ def run_trial(
     run_user_browser_scrape: bool = False,
     skip_already_searched: bool = False,
     skip_face_detection: bool = True,
-    skip_mturk: bool = True,
+    skip_mturk_cropped_face_images: bool = True,
+    skip_mturk_raw_images: bool = True,
+    skip_mturk_colorgrams: bool = True,
     mturk_client: Optional[botocore.clients.mturk] = None,
     mturk_in_realtime: bool = False,
     mturk_hit_type_id: Optional[str] = None,
@@ -213,7 +215,7 @@ def run_trial(
                 raw_image_doc.update(number_of_faces=len(face_batch))
                 updated_trial_run_manifest.append(raw_image_doc)
 
-                if not skip_mturk:
+                if not skip_mturk_cropped_face_images:
                     # MTurk hit creation is indexing hits to Elasticsearch
                     mturk_hit_documents = list()
                     for face_doc in face_batch:
@@ -272,6 +274,8 @@ def run_trial(
                 identity_fields=["face_id"]
             )
 
+        if not skip_mturk_raw_images:
+            raise UnimplementedError("Must implement MTurk HIT creation from raw images")
         index_to_elasticsearch(
             elasticsearch_client=elasticsearch_client,
             index=RAW_IMAGES_INDEX_PATTERN,
@@ -314,6 +318,9 @@ def run_trial(
                     vector.colorgram.save(save_to)
             if len(documents) > 1:
                 log.warning(f"multiple vectors created from a single search run")
+            if not skip_mturk_colorgrams:
+                raise UnimplementedError(f"Must implement Mturk task creation from colorgram documents")
+
             index_to_elasticsearch(
                 elasticsearch_client=elasticsearch_client,
                 index=COLORGRAMS_INDEX_PATTERN,
