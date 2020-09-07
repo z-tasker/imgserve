@@ -93,7 +93,7 @@ def get_s3_args(
 
 def get_mturk_args(
     parser: Optional[argparse.ArgumentParser] = None,
-) -> argparse.ArgumentParser
+) -> argparse.ArgumentParser:
 
     if parser is None:
         parser = argparse.ArgumentParser()
@@ -108,14 +108,14 @@ def get_mturk_args(
     mturk_parser.add_argument(
         "--mturk-access-key-id",
         type=str,
-        default=os.getenv("MTURK_ACCESS_KEY_ID", os.getenv("AWS_ACCESS_KEY_ID", None)),
-        required=True,
+        default=os.getenv("MTURK_ACCESS_KEY_ID"),
+        required=False,
     )
     mturk_parser.add_argument(
         "--mturk-secret-access-key",
         type=str,
-        default=os.getenv("MTURK_SECRET_ACCESS_KEY", os.getenv("AWS_SECRET_ACCESS_KEY", None)),
-        required=True,
+        default=os.getenv("MTURK_SECRET_ACCESS_KEY"),
+        required=False,
     )
     mturk_parser.add_argument(
         "--mturk-cropped-face-images-hit-type-id",
@@ -242,6 +242,11 @@ def get_experiment_args(
         action="store_true",
         help="Gather unique images by using image_url as the source of cross-trial image identity",
     )
+    mode.add_argument(
+        "--create-mturk-hits",
+        action="store_true",
+        help="Create Mturk HIT objects from the experiment"
+    )
 
     experiment_parser.add_argument(
         "--fresh-url-download",
@@ -365,84 +370,7 @@ def get_imgserve_args(
     imgserve_parser.add_argument(
         "--extract-faces",
         dest="skip_face_detection",
-        action="store_false"
+        action="store_false",
         help="Extract faces from raw images and store in their own index in Elasticsearch",
     )
     return parser
-
-
-def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
-    """ Prepare clients required for processing """
-    if args.elasticsearch_ca_certs is not None:
-        assert (
-            args.elasticsearch_ca_certs.is_file()
-        ), f"{args.elasticsearch_ca_certs} not found!"
-
-    elasticsearch_client = Elasticsearch(
-        hosts=[
-            {
-                "host": args.elasticsearch_client_fqdn,
-                "port": args.elasticsearch_client_port,
-            }
-        ],
-        http_auth=(args.elasticsearch_username, args.elasticsearch_password),
-        use_ssl=True,
-        verify_certs=True,
-        ca_certs=args.elasticsearch_ca_certs,
-    )
-    check_elasticsearch(
-        elasticsearch_client,
-        args.elasticsearch_client_fqdn,
-        args.elasticsearch_client_port,
-    )
-
-    s3_client = boto3.session.Session().client(
-        "s3",
-        region_name=args.s3_region_name,
-        endpoint_url=args.s3_endpoint_url,
-        aws_access_key_id=args.s3_access_key_id,
-        aws_secret_access_key=args.s3_secret_access_key,
-    )
-    return elasticsearch_client, s3_client
-
-def get_mturk_client(args: argparse.Namespace) -> Optional[botocore.clients.mturk]:
-
-    arg_issues = list()
-    if args.skip_face_detection:
-        if args.skip_mturk_cropped_face_images:
-            arg_issues.append("Cannot create cropped face HITs while skipping face detection")
-
-    if args.mturk_s3_bucket_name is None:
-        args.mturk_s3_bucket_name = args.s3_bucket_name
-
-    create_client = False
-    for mturk_target in ["raw_images", "cropped_face_images", "colorgrams"]:
-        if not getattr(args, f"skip_mturk_{mturk_target}"):
-            create_client = True # only create client if one of the mturk flags is set
-            missing = list()
-            for required in [
-                f"mturk_{mturk_target}_hit_type_id", 
-                f"mturk_{mturk_target}_hit_layout_id", 
-                f"mturk_access_key_id", 
-                f"mturk_secret_access_key"
-            ]:
-                if getattr(args, required) is None:
-                    missing.append(required)
-
-            if len(missing) >= 0:
-                arg_issues.append(
-                    ",".join(required) + f" are required arguments when --create-mturk-{mturk_target.replace('_', '-')}-hits is set"
-                )
-
-    if len(arg_issues) > 0:
-        raise MissingArgumentsError("\nAND\n".join(arg_issues))
-
-    if create_client:
-        ret = boto3.client(
-            "mturk",
-            aws_access_key_id=args.mturk_access_key_id,
-            aws_secret_access_key=args.mturk_secret_access_key,
-        )
-    else:
-        ret = None
-    return ret

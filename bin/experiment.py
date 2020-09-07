@@ -20,7 +20,7 @@ from imgserve.args import (
     get_mturk_args,
     get_s3_args,
 )
-from imgserve.clients import get_clients
+from imgserve.clients import get_clients, get_mturk_client
 from imgserve.elasticsearch import (
     get_response_value,
     index_to_elasticsearch,
@@ -190,11 +190,17 @@ def main(args: argparse.Namespace) -> None:
             run_user_browser_scrape=args.run_user_browser_scrape,
             skip_already_searched=args.skip_already_searched,
             skip_face_detection=args.skip_face_detection,
-            skip_mturk_hit_creation=args.skip_mturk_hit_creation,
+            skip_mturk_cropped_face_images=args.skip_mturk_cropped_face_images,
+            skip_mturk_raw_images=args.skip_mturk_raw_images,
+            skip_mturk_colorgrams=args.skip_mturk_colorgrams,
             mturk_client=mturk_client,
             mturk_in_realtime=args.mturk_in_realtime,
-            mturk_hit_type_id=args.mturk_hit_type_id,
-            mturk_hit_layout_id=args.mturk_hit_layout_id,
+            mturk_cropped_face_images_hit_type_id=args.mturk_cropped_face_images_hit_type_id,
+            mturk_cropped_face_images_hit_layout_id=args.mturk_cropped_face_images_hit_layout_id,
+            mturk_raw_images_hit_type_id=args.mturk_raw_images_hit_type_id,
+            mturk_raw_images_hit_layout_id=args.mturk_raw_images_hit_layout_id,
+            mturk_colorgrams_hit_type_id=args.mturk_colorgrams_hit_type_id,
+            mturk_colorgrams_hit_layout_id=args.mturk_colorgrams_hit_layout_id,
             mturk_s3_bucket_name=args.mturk_s3_bucket_name,
             skip_vectors=args.skip_vectors,
             query_timeout=300,

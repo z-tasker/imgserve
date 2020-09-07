@@ -76,8 +76,10 @@ open `localhost:8080` in your browser to view experiment results.
 
 The trial runner supports face extraction from raw images. Extracted faces are stored as documents in elasticsearch in the `CROPPED_FACE_INDEX_PATTERN`.
 
+
 ```
 ./experiment.sh \
+  --experiment-name null-test \
   --run-trial \
   --extract-faces
 ```
@@ -90,7 +92,7 @@ The MTurk HIT template used by this program will be passed the following HITLayo
 - `image_url` # to present to the worker
 - `search_term` # the term used in the search to retrieve this image
 
-The trial run produces a number of image artifacts (`raw-images`, `colorgrams`, `cropped-face-images`), mturk can be configured to run on any of these by passing the corresponding `--create-mturk-{index_pattern}-hits` flag.
+The trial run may produce a number of image artifacts (`raw-images`, `colorgrams`, `cropped-face-images`), mturk can be configured to run on any of these by passing the corresponding `--create-mturk-{index_pattern}-hits` flag.
 
 NOTE: at this time, only `--create-mturk-cropped-face-images-hits` is implemented.
 
@@ -104,7 +106,7 @@ NOTE: at this time, only `--create-mturk-cropped-face-images-hits` is implemente
   --mturk-cropped-face-images-hit-layout-id ${MTURK_HIT_LAYOUT_ID} \
 ```
 
-Add the `--mturk-in-realtime` flag to also create HIT objects in Mturk at query time (as opposed to only creating documents).
+Add the `--mturk-in-realtime` flag to also create HIT objects in Mturk at query time (as opposed to only creating documents). 
 
 By default, mturk client will use the same credentials and bucket name as the S3 Client, but you can override this and use a different set of parameters for mturk using the following flags:
 

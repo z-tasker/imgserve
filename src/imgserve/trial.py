@@ -66,16 +66,21 @@ def run_trial(
     skip_mturk_colorgrams: bool = True,
     mturk_client: Optional[botocore.clients.mturk] = None,
     mturk_in_realtime: bool = False,
-    mturk_hit_type_id: Optional[str] = None,
-    mturk_hit_layout_id: Optional[str] = None,
+    mturk_cropped_face_images_hit_type_id: Optional[str] = None,
+    mturk_cropped_face_images_hit_layout_id: Optional[str] = None,
+    mturk_raw_images_hit_type_id: Optional[str] = None,
+    mturk_raw_images_hit_layout_id: Optional[str] = None,
+    mturk_colorgrams_hit_type_id: Optional[str] = None,
+    mturk_colorgrams_hit_layout_id: Optional[str] = None,
     mturk_s3_bucket_name: Optional[str] = None,
     skip_vectors: bool = False,
     query_timeout: int = 300,
     no_compress: bool = False
 ) -> None:
     """
-        Light wrapper around github.com/mgrasker/qloader containerized search gatherer.
+        Wrapper around github.com/mgrasker/qloader containerized search gatherer.
         Results are uploaded to S3 in the container, this method will handle indexing the raw image metadata to elasticsearch.
+        This method also implements logic for face extraction and mturk HIT creation from the gathered images.
     """
     log = simple_logger("imgserve.run_trial")
     trial_timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")

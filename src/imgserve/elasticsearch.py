@@ -21,6 +21,7 @@ log = simple_logger("imgserve.elasticsearch")
 COLORGRAMS_INDEX_PATTERN = "colorgrams"
 RAW_IMAGES_INDEX_PATTERN = "raw-images"
 CROPPED_FACE_INDEX_PATTERN = "cropped-face"
+MTURK_HIT_INDEX_PATTERN = "mturk-hit"
 
 
 def _overridable_template_paths() -> Dict[str, Any]:

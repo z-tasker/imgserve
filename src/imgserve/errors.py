@@ -1,3 +1,7 @@
+class MissingArgumentsError(Exception):
+    pass
+
+
 class AmbiguousDataError(Exception):
     pass
 
