@@ -9,6 +9,7 @@ from pathlib import Path
 
 from retry import retry
 
+from .api import CroppedFaceImageDocument
 from .elasticsearch import (
     document_exists,
     index_to_elasticsearch,
@@ -199,11 +200,11 @@ def run_trial(
                 face_count = 0
                 face_batch = list()
                 # facechop crops each face out of each image and creates a new file in a nested folder under 'faces'
-                for image_id, face_image in facechop(downloaded_image, downloaded_image.joinpath("faces")):
+                for face_image in facechop(downloaded_image, downloaded_image.with_suffix("").joinpath("faces")):
                     face_doc = CroppedFaceImageDocument(
                         {
                             "image_id": downloaded_image.stem,
-                            "face_id": "-".join([downloaded_image.stem, len(face_batch)]),
+                            "face_id": "-".join([downloaded_image.stem, str(len(face_batch))]),
                         }
                     )
                     face_doc.update(image_document_shared)
