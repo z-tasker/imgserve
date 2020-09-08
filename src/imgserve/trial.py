@@ -201,21 +201,21 @@ def run_trial(
                 face_batch = list()
                 # facechop crops each face out of each image and creates a new file in a nested folder under 'faces'
                 for face_image in facechop(downloaded_image, downloaded_image.with_suffix("").joinpath("faces")):
-                    face_doc = CroppedFaceImageDocument(
-                        {
-                            "image_id": downloaded_image.stem,
-                            "face_id": "-".join([downloaded_image.stem, str(len(face_batch))]),
-                        }
-                    )
+                    face_doc = {
+                        "image_id": downloaded_image.stem,
+                        "face_id": "-".join([downloaded_image.stem, str(len(face_batch))]),
+                        "query": search_term
+                    }
                     face_doc.update(image_document_shared)
                     s3_put_image(
                         s3_client=s3_client,
                         image=face_image,
                         bucket=mturk_s3_bucket_name,
-                        object_path=CroppedFaceImageDocument(face_doc).path,
+                        object_path=Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]),
                         overwrite=True,
                     )
                     face_batch.append(face_doc)
+                    face_documents.append(face_doc)
 
                 # update raw image document with information about faces contained
                 raw_image_doc.update(number_of_faces=len(face_batch))
@@ -225,16 +225,18 @@ def run_trial(
                     # MTurk hit creation is indexing hits to Elasticsearch
                     mturk_hit_documents = list()
                     for face_doc in face_batch:
-                        mturk_hit_document = MturkHitDocument(
-                            copy.deepcopy(image_document_shared)
-                        )
+                        mturk_hit_document = copy.deepcopy(image_document_shared)
                         mturk_layout_parameters = [
                             {
                                 "Name": "image_url",
-                                "Value": CroppedFaceImageDocument(face_doc).path
+                                "Value": Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"])
+                            },
+                            {
+                                "Name": "search_term",
+                                "Value": search_term
                             }
                         ]
-                        mturk_hit_document.source.update(
+                        mturk_hit_document.update(
                             {
                                 "hit_state": "indexed",
                                 "_internal_hit_id": hashlib.sha256(
@@ -257,11 +259,12 @@ def run_trial(
                             # Can optionally create mturk HIT at query time
                             mturk_hit_document = create_mturk_image_hit(
                                 mturk_client=mturk_client,
-                                mturk_hit_document=mturk_hit_document,
+                                mturk_hit_document=MturkHitDocument({"_source": mturk_hit_document}),
                             )
-                            mturk_hit_document.source["hit_state"] = "created"
 
-                        mturk_hit_documents.append(mturk_hit_document)
+                        mturk_hit_documents.append(mturk_hit_document.source)
+
+
 
                     index_to_elasticsearch(
                         elasticsearch_client=elasticsearch_client,

@@ -1,5 +1,5 @@
 {
-  "index_patterns": ["raw-images"],
+  "index_patterns": ["cropped-face"],
   "settings": {
     "number_of_shards": 1,
     "number_of_replicas": 1

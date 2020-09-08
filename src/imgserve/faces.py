@@ -6,6 +6,8 @@ from pathlib import Path
 import cv2
 from PIL import Image
 
+from .logger import simple_logger
+
 
 FACE_CLASSIFIER_XML = os.getenv("IMGSERVE_FACE_CLASSIFIER_XML", "haarcascade_frontalface_default.xml")
 assert Path(FACE_CLASSIFIER_XML).is_file(), f"{FACE_CLASSIFIER_XML} is not a file!"
@@ -15,6 +17,7 @@ FACE_CLASSIFIER = cv2.CascadeClassifier(FACE_CLASSIFIER_XML)
 
 
 def facechop(image: Path, output_dir: Path, face_classifier: cv2.CascadeClassifier = FACE_CLASSIFIER) -> Generator[Path, None, None]:  
+    log = simple_logger("imgserve.facechop")
     img = cv2.imread(str(image))
 
     minisize = (img.shape[1], img.shape[0])
@@ -30,7 +33,7 @@ def facechop(image: Path, output_dir: Path, face_classifier: cv2.CascadeClassifi
 
         output_dir.mkdir(exist_ok=True, parents=True)
         cropped_face_image: Path = output_dir.joinpath(image.stem + f"-{count}").with_suffix(".jpg")
-        print("writing", cropped_face_image)
+        log.debug(f"writing {cropped_face_image}")
         cv2.imwrite(str(cropped_face_image), sub_face)
 
         yield cropped_face_image

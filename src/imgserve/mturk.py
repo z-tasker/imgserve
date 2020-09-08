@@ -15,6 +15,8 @@ def create_mturk_image_hit(mturk_client: botocore.clients.mturk, mturk_hit_docum
         LifetimeInSeconds=3600,
     )
 
+    mturk_hit_document.source.update(hit_state="created")
+
     mturk_hit_document.source.update(
         {
             field_key: mturk_hit_resp[field_key] for field_key in [
