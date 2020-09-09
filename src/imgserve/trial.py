@@ -1,5 +1,6 @@
 from __future__ import annotations
 import copy
+import hashlib
 import json
 import shlex
 import shutil
@@ -229,7 +230,7 @@ def run_trial(
                         mturk_layout_parameters = [
                             {
                                 "Name": "image_url",
-                                "Value": Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"])
+                                "Value": f"https://{mturk_s3_bucket_name}.s3.ca-central-1.amazonaws.com/" + str(Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]))
                             },
                             {
                                 "Name": "search_term",
@@ -243,15 +244,15 @@ def run_trial(
                                     "-".join(
                                         [
                                             face_doc["face_id"],
-                                            mturk_hit_type_id,
-                                            mturk_hit_layout_id,
+                                            mturk_cropped_face_images_hit_type_id,
+                                            mturk_cropped_face_images_hit_layout_id,
                                             json.dumps(mturk_layout_parameters, sort_keys=True),
                                         ]
                                     ).encode("utf-8")
                                 ).hexdigest(),
-                                "mturk_hit_type_id": mturk_hit_type_id,
-                                "mturk_hit_layout_id": mturk_hit_layout_id,
-                                "mturk_layout_parameters": mturk_layout_paramaters,                            
+                                "mturk_hit_type_id": mturk_cropped_face_images_hit_type_id,
+                                "mturk_hit_layout_id": mturk_cropped_face_images_hit_layout_id,
+                                "mturk_layout_parameters": mturk_layout_parameters,
                             }
                         )
 
@@ -262,16 +263,15 @@ def run_trial(
                                 mturk_hit_document=MturkHitDocument({"_source": mturk_hit_document}),
                             )
 
-                        mturk_hit_documents.append(mturk_hit_document.source)
+                        mturk_hit_documents.append(mturk_hit_document)
 
-
-
-                    index_to_elasticsearch(
-                        elasticsearch_client=elasticsearch_client,
-                        index=MTURK_HIT_INDEX_PATTERN,
-                        docs=mturk_hit_documents,
-                        identity_fields=["_internal_hit_id"]
-                    )
+                    if len(mturk_hit_documents) > 0:
+                        index_to_elasticsearch(
+                            elasticsearch_client=elasticsearch_client,
+                            index=MTURK_HIT_INDEX_PATTERN,
+                            docs=mturk_hit_documents,
+                            identity_fields=["_internal_hit_id"]
+                        )
 
 
             # finish face detection, update raw images data with metadata about faces

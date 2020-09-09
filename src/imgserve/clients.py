@@ -72,9 +72,9 @@ def get_mturk_client(args: argparse.Namespace) -> Optional[botocore.clients.mtur
                 if getattr(args, required) is None:
                     missing.append(required)
 
-            if len(missing) >= 0:
+            if len(missing) > 0:
                 arg_issues.append(
-                    ",".join(required) + f" are required arguments when --create-mturk-{mturk_target.replace('_', '-')}-hits is set"
+                    ",".join(missing) + f" are required arguments when --create-mturk-{mturk_target.replace('_', '-')}-hits is set"
                 )
 
     if len(arg_issues) > 0:

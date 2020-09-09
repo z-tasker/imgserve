@@ -30,6 +30,10 @@ spec:
             mountPath: /mnt/imgserve
           securityContext:
             privileged: true
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 100m
           args:
           - --experiment-name
           - "top-100-wikipedia"
@@ -110,3 +114,7 @@ spec:
         securityContext:
           privileged: true                
         mirrorVolumeMounts: true
+        resources:
+          requests:
+            memory: 32Mi
+            cpu: 100m
