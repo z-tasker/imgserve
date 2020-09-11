@@ -4,19 +4,18 @@ import os
 from pathlib import Path
 
 import cv2
-from PIL import Image
 
 from .logger import simple_logger
 
 
-FACE_CLASSIFIER_XML = os.getenv("IMGSERVE_FACE_CLASSIFIER_XML", "haarcascade_frontalface_default.xml")
+FACE_CLASSIFIER_XML = os.getenv("IMGSERVE_FACE_CLASSIFIER_XML", "haarcascade_frontalface_alt.xml")
 assert Path(FACE_CLASSIFIER_XML).is_file(), f"{FACE_CLASSIFIER_XML} is not a file!"
 
 FACE_CLASSIFIER = cv2.CascadeClassifier(FACE_CLASSIFIER_XML)
 
 
 
-def facechop(image: Path, output_dir: Path, face_classifier: cv2.CascadeClassifier = FACE_CLASSIFIER) -> Generator[Path, None, None]:  
+def facechop(image: Path, output_dir: Path, face_classifier: cv2.CascadeClassifier = FACE_CLASSIFIER) -> Generator[Path, None, None]:
     log = simple_logger("imgserve.facechop")
     img = cv2.imread(str(image))
 

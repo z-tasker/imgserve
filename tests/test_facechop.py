@@ -1,11 +1,11 @@
 from __future__ import annotations
-import pytest
 
 from pathlib import Path
 
+import pytest
+
 from imgserve.faces import facechop
 
-@pytest.mark.unit
 def test_facechop() -> None:
     successes = list()
     failures = list()
