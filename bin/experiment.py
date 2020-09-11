@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import io
 import os
+import hashlib
 import json
 import socket
 from pathlib import Path
@@ -30,6 +31,7 @@ from imgserve.logger import simple_logger
 from imgserve.s3 import s3_put_image
 from imgserve.trial import run_trial
 from imgserve.vectors import get_vectors
+from imgserve.utils import download_image
 
 
 BUCKET_NAME = "imgserve"
@@ -362,7 +364,7 @@ def main(args: argparse.Namespace) -> None:
         args.export_vectors_to.write_text(json.dumps(vectors, indent=2))
 
     if args.get_unique_images:
-        for image_url in get_response_value(
+        for key in get_response_value(
             elasticsearch_client=elasticsearch_client,
             index="raw-images",
             query={
@@ -380,6 +382,7 @@ def main(args: argparse.Namespace) -> None:
                             "size": 500,
                             "sources": [
                                 {"image_url": {"terms": {"field": "image_url",},}},
+                                {"query": {"terms": {"field": "query",},}},
                             ],
                         }
                     }
@@ -391,27 +394,30 @@ def main(args: argparse.Namespace) -> None:
                 "buckets",
                 "*",
                 "key",
-                "image_url",
             ],
             size=0,
             debug=True,
             composite_aggregation_name="image_url",
         ):
+            image_url = key["image_url"]
+            query = key["query"]
             # can either download fresh for hi-fi, or collect from existing
             if args.fresh_url_download:
                 path = (
                     args.local_data_store.joinpath(args.experiment_name)
                     .joinpath("original")
-                    .joinpath(hashlib.sha244(image_url.encode("utf-8")).hexdigest())
+                    .joinpath(query)
+                    .joinpath(hashlib.md5(image_url.encode("utf-8")).hexdigest())
                 )
                 log.info(f"downloading {image_url}")
-                download_image(url=image_url, path=path)
+                download_image(url=image_url, path=path, overwrite=False)
             else:
                 # get an s3 path for one of the images. S3 Paths for raw images should be hashes of their url, would de-duplicate
                 # can track last modified to determine if a new one is needed? or hash something?
                 # with this strategy, all experiments could share a common image store. Huge efficiency for the timeseries data.
                 pass
-            
+        log.info("downloaded images fresh to {args.local_data_store.joinpath(args.experiment_name).joinpath('original')}")
+
 
 
 if __name__ == "__main__":
