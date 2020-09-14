@@ -42,7 +42,10 @@ def s3_put_image(
         s3_client.put_object(Body=image_bytes, Bucket=bucket, Key=str(object_path))
         log.info(f"uploaded {object_path} to s3.")
     except s3_client.exceptions.ClientError:
-        raise S3Error(f"{s3_client} S3 ClientError")
+        s3_client_attributes = {
+            attr: getattr(s3_client, attr) for attr in s3_client.__dict__.keys()
+        }
+        raise S3Error(f"{s3_client_attributes} S3 ClientError")
 
 
 def get_s3_bytes(
