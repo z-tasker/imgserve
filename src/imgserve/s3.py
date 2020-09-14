@@ -45,6 +45,10 @@ def s3_put_image(
         s3_client_attributes = {
             attr: getattr(s3_client, attr) for attr in s3_client.__dict__.keys()
         }
+        s3_client_attributes.update({
+            "bucket": bucket,
+            "object_path": object_path,
+        })
         raise S3Error(f"{s3_client_attributes} S3 ClientError")
 
 
