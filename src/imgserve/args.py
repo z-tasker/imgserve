@@ -106,7 +106,7 @@ def get_mturk_args(
         required=False
     )
     mturk_parser.add_argument(
-        "--mturk-aws-region"
+        "--mturk-aws-region",
         type=str,
         required=False
     )
