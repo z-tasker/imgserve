@@ -1,7 +1,22 @@
 from __future__ import annotations
+import io
 from copy import copy
 
+import requests
+from PIL import Image, UnidentifiedImageError
+
 from .errors import InvalidSliceArgumentError
+from .logger import simple_logger
+
+
+def download_image(url: str, path: Path, overwrite: bool = False) -> None:
+    if path.is_file() and not overwrite:
+        return
+    simple_logger("imgserve.utils.download_image").info(f"downloading {url} to {path}")
+    path.parent.mkdir(exist_ok=True, parents=True)
+    resp = requests.get(url, stream=True, timeout=30)
+    with open(path, "wb") as f:
+        f.write(resp.content)
 
 
 def get_batch_slice(items: List[Any], batch_slice: str) -> List[Any]:

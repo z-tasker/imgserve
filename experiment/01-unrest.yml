@@ -30,6 +30,10 @@ spec:
             mountPath: /mnt/imgserve
           securityContext:
             privileged: true
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 100m
           args:
           - --experiment-name
           - "unrest"
@@ -108,3 +112,7 @@ spec:
         securityContext:
           privileged: true                
         mirrorVolumeMounts: true
+        resources:
+          requests:
+            memory: 32Mi
+            cpu: 100m

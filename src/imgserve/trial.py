@@ -1,5 +1,6 @@
 from __future__ import annotations
 import copy
+import hashlib
 import json
 import shlex
 import shutil
@@ -9,10 +10,13 @@ from pathlib import Path
 
 from retry import retry
 
+from .api import CroppedFaceImageDocument
 from .elasticsearch import (
     document_exists,
     index_to_elasticsearch,
     COLORGRAMS_INDEX_PATTERN,
+    CROPPED_FACE_INDEX_PATTERN,
+    MTURK_HIT_INDEX_PATTERN,
     RAW_IMAGES_INDEX_PATTERN,
 )
 from .errors import UnimplementedError
@@ -20,8 +24,9 @@ from .logger import simple_logger
 from .s3 import s3_put_image
 from .utils import get_batch_slice
 from .vectors import get_vectors
+from .faces import facechop
 
-QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.3.0"
+QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.4.0"
 
 
 @retry(tries=5, backoff=2, delay=1)
@@ -57,12 +62,28 @@ def run_trial(
     no_local_data: bool = False,
     run_user_browser_scrape: bool = False,
     skip_already_searched: bool = False,
+    skip_face_detection: bool = True,
+    skip_mturk_cropped_face_images: bool = True,
+    skip_mturk_raw_images: bool = True,
+    skip_mturk_colorgrams: bool = True,
+    mturk_client: Optional[botocore.clients.mturk] = None,
+    mturk_in_realtime: bool = False,
+    mturk_cropped_face_images_hit_type_id: Optional[str] = None,
+    mturk_cropped_face_images_hit_layout_id: Optional[str] = None,
+    mturk_raw_images_hit_type_id: Optional[str] = None,
+    mturk_raw_images_hit_layout_id: Optional[str] = None,
+    mturk_colorgrams_hit_type_id: Optional[str] = None,
+    mturk_colorgrams_hit_layout_id: Optional[str] = None,
+    mturk_s3_bucket_name: Optional[str] = None,
     skip_vectors: bool = False,
     query_timeout: int = 300,
+    no_compress: bool = False,
+    cv2_cascade_min_neighbors: int = 5,
 ) -> None:
     """
-        Light wrapper around github.com/mgrasker/qloader containerized search gatherer.
+        Wrapper around github.com/mgrasker/qloader containerized search gatherer.
         Results are uploaded to S3 in the container, this method will handle indexing the raw image metadata to elasticsearch.
+        This method also implements logic for face extraction and mturk HIT creation from the gathered images.
     """
     log = simple_logger("imgserve.run_trial")
     trial_timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -135,6 +156,8 @@ def run_trial(
                     --max-images {max_images} \
                     --output-path /tmp/imgserve/ \
                     --metadata-path /tmp/imgserve/{trial_id}/.metadata-{trial_timestamp}.json'
+            if no_compress:
+                docker_run_command += ' --no-compress'
             try:
                 run_search(docker_run_command, timeout=query_timeout)
             except subprocess.TimeoutExpired as e:
@@ -169,6 +192,100 @@ def run_trial(
                     ]
                 )
             )
+
+        if not skip_face_detection:
+            face_documents = list()
+            updated_trial_run_manifest = list()
+            # iterate over manifest documents
+            for raw_image_doc in json.loads(trial_run_manifest.read_text()):
+                downloaded_image = query_downloads.joinpath("images").joinpath(f"{raw_image_doc['image_id']}.jpg")
+                face_count = 0
+                face_batch = list()
+                # facechop crops each face out of each image and creates a new file in a nested folder under 'faces'
+                for face_image in facechop(downloaded_image, downloaded_image.with_suffix("").joinpath("faces"), cv2_cascade_min_neighbors=cv2_cascade_min_neighbors):
+                    face_doc = {
+                        "image_id": downloaded_image.stem,
+                        "face_id": "-".join([downloaded_image.stem, str(len(face_batch))]),
+                        "query": search_term
+                    }
+                    face_doc.update(image_document_shared)
+                    s3_put_image(
+                        s3_client=s3_client,
+                        image=face_image,
+                        bucket=mturk_s3_bucket_name,
+                        object_path=Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]),
+                        overwrite=True,
+                    )
+                    face_batch.append(face_doc)
+                    face_documents.append(face_doc)
+
+                # update raw image document with information about faces contained
+                raw_image_doc.update(number_of_faces=len(face_batch))
+                updated_trial_run_manifest.append(raw_image_doc)
+
+                if not skip_mturk_cropped_face_images:
+                    # MTurk hit creation is indexing hits to Elasticsearch
+                    mturk_hit_documents = list()
+                    for face_doc in face_batch:
+                        mturk_hit_document = copy.deepcopy(image_document_shared)
+                        mturk_layout_parameters = [
+                            {
+                                "Name": "image_url",
+                                "Value": f"https://{mturk_s3_bucket_name}.s3.ca-central-1.amazonaws.com/" + str(Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]))
+                            },
+                            {
+                                "Name": "search_term",
+                                "Value": search_term
+                            }
+                        ]
+                        mturk_hit_document.update(
+                            {
+                                "hit_state": "indexed",
+                                "_internal_hit_id": hashlib.sha256(
+                                    "-".join(
+                                        [
+                                            face_doc["face_id"],
+                                            mturk_cropped_face_images_hit_type_id,
+                                            mturk_cropped_face_images_hit_layout_id,
+                                            json.dumps(mturk_layout_parameters, sort_keys=True),
+                                        ]
+                                    ).encode("utf-8")
+                                ).hexdigest(),
+                                "mturk_hit_type_id": mturk_cropped_face_images_hit_type_id,
+                                "mturk_hit_layout_id": mturk_cropped_face_images_hit_layout_id,
+                                "mturk_layout_parameters": mturk_layout_parameters,
+                            }
+                        )
+
+                        if mturk_in_realtime:
+                            # Can optionally create mturk HIT at query time
+                            mturk_hit_document = create_mturk_image_hit(
+                                mturk_client=mturk_client,
+                                mturk_hit_document=MturkHitDocument({"_source": mturk_hit_document}),
+                            )
+
+                        mturk_hit_documents.append(mturk_hit_document)
+
+                    if len(mturk_hit_documents) > 0:
+                        index_to_elasticsearch(
+                            elasticsearch_client=elasticsearch_client,
+                            index=MTURK_HIT_INDEX_PATTERN,
+                            docs=mturk_hit_documents,
+                            identity_fields=["_internal_hit_id"]
+                        )
+
+
+            # finish face detection, update raw images data with metadata about faces
+            trial_run_manifest.write_text(json.dumps(updated_trial_run_manifest))
+            index_to_elasticsearch(
+                elasticsearch_client=elasticsearch_client,
+                index=CROPPED_FACE_INDEX_PATTERN,
+                docs=face_documents,
+                identity_fields=["face_id"]
+            )
+
+        if not skip_mturk_raw_images:
+            raise UnimplementedError("Must implement MTurk HIT creation from raw images")
         index_to_elasticsearch(
             elasticsearch_client=elasticsearch_client,
             index=RAW_IMAGES_INDEX_PATTERN,
@@ -211,6 +328,9 @@ def run_trial(
                     vector.colorgram.save(save_to)
             if len(documents) > 1:
                 log.warning(f"multiple vectors created from a single search run")
+            if not skip_mturk_colorgrams:
+                raise UnimplementedError(f"Must implement Mturk task creation from colorgram documents")
+
             index_to_elasticsearch(
                 elasticsearch_client=elasticsearch_client,
                 index=COLORGRAMS_INDEX_PATTERN,
@@ -226,6 +346,7 @@ def run_trial(
                     else ""
                 )
             )
+
 
         if no_local_data:
             shutil.rmtree(query_downloads)

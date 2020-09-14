@@ -91,6 +91,85 @@ def get_s3_args(
     return parser
 
 
+def get_mturk_args(
+    parser: Optional[argparse.ArgumentParser] = None,
+) -> argparse.ArgumentParser:
+
+    if parser is None:
+        parser = argparse.ArgumentParser()
+
+    mturk_parser = parser.add_argument_group("mturk")
+
+    mturk_parser.add_argument(
+        "--mturk-s3-bucket-name",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-access-key-id",
+        type=str,
+        default=os.getenv("MTURK_ACCESS_KEY_ID"),
+        required=False,
+    )
+    mturk_parser.add_argument(
+        "--mturk-secret-access-key",
+        type=str,
+        default=os.getenv("MTURK_SECRET_ACCESS_KEY"),
+        required=False,
+    )
+    mturk_parser.add_argument(
+        "--mturk-cropped-face-images-hit-type-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-cropped-face-images-hit-layout-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-raw-images-hit-type-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-raw-images-hit-layout-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-colorgrams-hit-type-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-colorgrams-hit-layout-id",
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
+        "--mturk-in-realtime",
+        action="store_true",
+        help="Create Mturk HITs at search time, default behaviour only creates mturk_hit_documents in Elasticsearch"
+    )
+    mturk_parser.add_argument(
+        "--create-mturk-cropped-face-images-hits",
+        action="store_false",
+        dest="skip_mturk_cropped_face_images",
+    )
+    mturk_parser.add_argument(
+        "--create-mturk-raw-images-hits",
+        action="store_false",
+        dest="skip_mturk_raw_images",
+    )
+    mturk_parser.add_argument(
+        "--create-mturk-colorgrams-hits",
+        action="store_false",
+        dest="skip_mturk_colorgrams",
+    )
+
+    return parser
+
 def get_experiment_args(
     parser: Optional[argparse.ArgumentParser] = None,
 ) -> argparse.ArgumentParser:
@@ -162,6 +241,11 @@ def get_experiment_args(
         "--get-unique-images",
         action="store_true",
         help="Gather unique images by using image_url as the source of cross-trial image identity",
+    )
+    mode.add_argument(
+        "--create-mturk-hits",
+        action="store_true",
+        help="Create Mturk HIT objects from the experiment"
     )
 
     experiment_parser.add_argument(
@@ -278,39 +362,21 @@ def get_imgserve_args(
         required=False,
         help="optionally slice experiment in multiple pieces for distributed running",
     )
+    imgserve_parser.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Do not compress images before mirroring them to S3. Default behaviour is to compress to 300x300 (stretch to fit)."
+    )
+    imgserve_parser.add_argument(
+        "--extract-faces",
+        dest="skip_face_detection",
+        action="store_false",
+        help="Extract faces from raw images and store in their own index in Elasticsearch",
+    )
+    imgserve_parser.add_argument(
+        "--cv2-cascade-min-neighbors",
+        type=int,
+        default=5,
+        help="minNeighbors hyperparameter for cv2 haarcascade based face classification"
+    )
     return parser
-
-
-def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
-    """ Prepare clients required for processing """
-    if args.elasticsearch_ca_certs is not None:
-        assert (
-            args.elasticsearch_ca_certs.is_file()
-        ), f"{args.elasticsearch_ca_certs} not found!"
-
-    elasticsearch_client = Elasticsearch(
-        hosts=[
-            {
-                "host": args.elasticsearch_client_fqdn,
-                "port": args.elasticsearch_client_port,
-            }
-        ],
-        http_auth=(args.elasticsearch_username, args.elasticsearch_password),
-        use_ssl=True,
-        verify_certs=True,
-        ca_certs=args.elasticsearch_ca_certs,
-    )
-    check_elasticsearch(
-        elasticsearch_client,
-        args.elasticsearch_client_fqdn,
-        args.elasticsearch_client_port,
-    )
-
-    s3_client = boto3.session.Session().client(
-        "s3",
-        region_name=args.s3_region_name,
-        endpoint_url=args.s3_endpoint_url,
-        aws_access_key_id=args.s3_access_key_id,
-        aws_secret_access_key=args.s3_secret_access_key,
-    )
-    return elasticsearch_client, s3_client
