@@ -75,6 +75,7 @@ def run_trial(
     mturk_colorgrams_hit_type_id: Optional[str] = None,
     mturk_colorgrams_hit_layout_id: Optional[str] = None,
     mturk_s3_bucket_name: Optional[str] = None,
+    mturk_s3_region: Optional[str] = None,
     skip_vectors: bool = False,
     query_timeout: int = 300,
     no_compress: bool = False,
@@ -231,7 +232,7 @@ def run_trial(
                         mturk_layout_parameters = [
                             {
                                 "Name": "image_url",
-                                "Value": f"https://{mturk_s3_bucket_name}.s3.ca-central-1.amazonaws.com/" + str(Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]))
+                                "Value": f"https://{mturk_s3_bucket_name}.s3.{mturk_s3_region}.amazonaws.com/" + str(Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]))
                             },
                             {
                                 "Name": "search_term",

@@ -5,6 +5,7 @@ from elasticsearch import Elasticsearch
 
 from .elasticsearch import check_elasticsearch
 from .errors import MissingArgumentsError
+from .logger import simple_logger
 
 
 def get_clients(args: argparse.Namespace) -> Tuple[Elasticsearch, botocore.clients.s3]:
