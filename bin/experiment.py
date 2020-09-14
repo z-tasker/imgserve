@@ -206,7 +206,8 @@ def main(args: argparse.Namespace) -> None:
             mturk_s3_bucket_name=args.mturk_s3_bucket_name,
             skip_vectors=args.skip_vectors,
             query_timeout=300,
-            no_compress=args.no_compress
+            no_compress=args.no_compress,
+            cv2_cascade_min_neighbors=args.cv2_cascade_min_neighbors,
         )
 
         log.info(f"image gathering completed")
@@ -364,6 +365,7 @@ def main(args: argparse.Namespace) -> None:
         args.export_vectors_to.write_text(json.dumps(vectors, indent=2))
 
     if args.get_unique_images:
+        located_images = 0
         for key in get_response_value(
             elasticsearch_client=elasticsearch_client,
             index="raw-images",
@@ -395,7 +397,7 @@ def main(args: argparse.Namespace) -> None:
                 "*",
                 "key",
             ],
-            size=0,
+            size=500,
             debug=True,
             composite_aggregation_name="image_url",
         ):
@@ -408,15 +410,18 @@ def main(args: argparse.Namespace) -> None:
                     .joinpath("original")
                     .joinpath(query)
                     .joinpath(hashlib.md5(image_url.encode("utf-8")).hexdigest())
+                    .with_suffix(".jpg")
                 )
-                log.info(f"downloading {image_url}")
                 download_image(url=image_url, path=path, overwrite=False)
             else:
                 # get an s3 path for one of the images. S3 Paths for raw images should be hashes of their url, would de-duplicate
                 # can track last modified to determine if a new one is needed? or hash something?
                 # with this strategy, all experiments could share a common image store. Huge efficiency for the timeseries data.
                 pass
-        log.info("downloaded images fresh to {args.local_data_store.joinpath(args.experiment_name).joinpath('original')}")
+            located_images += 1
+            if located_images % 10000 == 0:
+                log.info(f"located {located_images} images")
+        log.info("images gathered: {args.local_data_store.joinpath(args.experiment_name).joinpath('original')}")
 
 
 

@@ -373,4 +373,10 @@ def get_imgserve_args(
         action="store_false",
         help="Extract faces from raw images and store in their own index in Elasticsearch",
     )
+    imgserve_parser.add_argument(
+        "--cv2-cascade-min-neighbors",
+        type=int,
+        default=5,
+        help="minNeighbors hyperparameter for cv2 haarcascade based face classification"
+    )
     return parser

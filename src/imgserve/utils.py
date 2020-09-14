@@ -12,6 +12,7 @@ from .logger import simple_logger
 def download_image(url: str, path: Path, overwrite: bool = False) -> None:
     if path.is_file() and not overwrite:
         return
+    simple_logger("imgserve.utils.download_image").info(f"downloading {url} to {path}")
     path.parent.mkdir(exist_ok=True, parents=True)
     resp = requests.get(url, stream=True, timeout=30)
     with open(path, "wb") as f:

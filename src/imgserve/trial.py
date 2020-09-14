@@ -77,7 +77,8 @@ def run_trial(
     mturk_s3_bucket_name: Optional[str] = None,
     skip_vectors: bool = False,
     query_timeout: int = 300,
-    no_compress: bool = False
+    no_compress: bool = False,
+    cv2_cascade_min_neighbors: int = 5,
 ) -> None:
     """
         Wrapper around github.com/mgrasker/qloader containerized search gatherer.
@@ -201,7 +202,7 @@ def run_trial(
                 face_count = 0
                 face_batch = list()
                 # facechop crops each face out of each image and creates a new file in a nested folder under 'faces'
-                for face_image in facechop(downloaded_image, downloaded_image.with_suffix("").joinpath("faces")):
+                for face_image in facechop(downloaded_image, downloaded_image.with_suffix("").joinpath("faces"), cv2_cascade_min_neighbors=cv2_cascade_min_neighbors):
                     face_doc = {
                         "image_id": downloaded_image.stem,
                         "face_id": "-".join([downloaded_image.stem, str(len(face_batch))]),
