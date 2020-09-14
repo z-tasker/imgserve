@@ -58,15 +58,18 @@ def get_mturk_client(args: argparse.Namespace) -> Optional[botocore.clients.mtur
         args.mturk_access_key_id = args.s3_access_key_id
         args.mturk_secret_access_key = args.s3_secret_access_key
 
+    if args.mturk_aws_region is None:
+        args.mturk_aws_region = args.s3_region_name
+
     create_client = False
     for mturk_target in ["raw_images", "cropped_face_images", "colorgrams"]:
         if not getattr(args, f"skip_mturk_{mturk_target}"):
             create_client = True # only create client if one of the mturk flags is set
             missing = list()
             for required in [
-                f"mturk_{mturk_target}_hit_type_id", 
-                f"mturk_{mturk_target}_hit_layout_id", 
-                f"mturk_access_key_id", 
+                f"mturk_{mturk_target}_hit_type_id",
+                f"mturk_{mturk_target}_hit_layout_id",
+                f"mturk_access_key_id",
                 f"mturk_secret_access_key"
             ]:
                 if getattr(args, required) is None:
@@ -85,6 +88,7 @@ def get_mturk_client(args: argparse.Namespace) -> Optional[botocore.clients.mtur
             "mturk",
             aws_access_key_id=args.mturk_access_key_id,
             aws_secret_access_key=args.mturk_secret_access_key,
+            region_name=args.mturk_aws_region,
         )
     else:
         ret = None

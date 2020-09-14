@@ -106,6 +106,11 @@ def get_mturk_args(
         required=False
     )
     mturk_parser.add_argument(
+        "--mturk-aws-region"
+        type=str,
+        required=False
+    )
+    mturk_parser.add_argument(
         "--mturk-access-key-id",
         type=str,
         default=os.getenv("MTURK_ACCESS_KEY_ID"),
