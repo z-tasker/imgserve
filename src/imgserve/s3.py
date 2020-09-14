@@ -4,6 +4,7 @@ from pathlib import Path
 
 import PIL
 
+from .errors import S3Error
 from .logger import simple_logger
 
 log = simple_logger("imgserve.s3")
@@ -41,7 +42,7 @@ def s3_put_image(
         s3_client.put_object(Body=image_bytes, Bucket=bucket, Key=str(object_path))
         log.info(f"uploaded {object_path} to s3.")
     except s3_client.exceptions.ClientError:
-        raise s3_client.exceptions.ClientError(f"{s3_client} S3 ClientError")
+        raise S3Error(f"{s3_client} S3 ClientError")
 
 
 def get_s3_bytes(

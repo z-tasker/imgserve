@@ -56,3 +56,7 @@ class MissingTemplateError(ElasticsearchError):
 
 class NoQueriesGatheredError(Exception):
     pass
+
+
+class S3Error(Exception):
+    pass
