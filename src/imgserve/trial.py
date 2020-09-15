@@ -26,7 +26,7 @@ from .utils import get_batch_slice
 from .vectors import get_vectors
 from .faces import facechop
 
-QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.4.0"
+QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.5.0"
 
 
 @retry(tries=5, backoff=2, delay=1)
@@ -216,8 +216,8 @@ def run_trial(
                         s3_client=s3_client,
                         image=face_image,
                         bucket=mturk_s3_bucket_name,
-                        object_path=Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]),
-                        overwrite=True,
+                        object_path=Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]).with_suffix(".jpg"),
+                        overwrite=False,
                     )
                     face_batch.append(face_doc)
                     face_documents.append(face_doc)
@@ -283,7 +283,8 @@ def run_trial(
                 elasticsearch_client=elasticsearch_client,
                 index=CROPPED_FACE_INDEX_PATTERN,
                 docs=face_documents,
-                identity_fields=["face_id"]
+                identity_fields=["face_id"],
+                overwrite=False
             )
 
         if not skip_mturk_raw_images:
