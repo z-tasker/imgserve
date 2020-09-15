@@ -77,7 +77,7 @@ def run_trial(
     mturk_s3_bucket_name: Optional[str] = None,
     mturk_s3_region: Optional[str] = None,
     skip_vectors: bool = False,
-    query_timeout: int = 300,
+    query_timeout: int = 600,
     no_compress: bool = False,
     cv2_cascade_min_neighbors: int = 5,
 ) -> None:
