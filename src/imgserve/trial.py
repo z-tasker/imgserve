@@ -194,6 +194,8 @@ def run_trial(
                 )
             )
 
+        mturk_hit_documents = list()
+
         if not skip_face_detection:
             face_documents = list()
             updated_trial_run_manifest = list()
@@ -226,7 +228,6 @@ def run_trial(
 
                 if not skip_mturk_cropped_face_images:
                     # MTurk hit creation is indexing hits to Elasticsearch
-                    mturk_hit_documents = list()
                     for face_doc in face_batch:
                         mturk_hit_document = copy.deepcopy(image_document_shared)
                         mturk_layout_parameters = [
@@ -242,7 +243,7 @@ def run_trial(
                         mturk_hit_document.update(
                             {
                                 "hit_state": "indexed",
-                                "_internal_hit_id": hashlib.sha256(
+                                "internal_hit_id": hashlib.sha256(
                                     "-".join(
                                         [
                                             face_doc["face_id"],
@@ -267,13 +268,13 @@ def run_trial(
 
                         mturk_hit_documents.append(mturk_hit_document)
 
-                    if len(mturk_hit_documents) > 0:
-                        index_to_elasticsearch(
-                            elasticsearch_client=elasticsearch_client,
-                            index=MTURK_HIT_INDEX_PATTERN,
-                            docs=mturk_hit_documents,
-                            identity_fields=["_internal_hit_id"]
-                        )
+            if len(mturk_hit_documents) > 0:
+                index_to_elasticsearch(
+                    elasticsearch_client=elasticsearch_client,
+                    index=MTURK_HIT_INDEX_PATTERN,
+                    docs=mturk_hit_documents,
+                    identity_fields=["internal_hit_id"]
+                )
 
 
             # finish face detection, update raw images data with metadata about faces

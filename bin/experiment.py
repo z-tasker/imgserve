@@ -204,6 +204,7 @@ def main(args: argparse.Namespace) -> None:
             mturk_colorgrams_hit_type_id=args.mturk_colorgrams_hit_type_id,
             mturk_colorgrams_hit_layout_id=args.mturk_colorgrams_hit_layout_id,
             mturk_s3_bucket_name=args.mturk_s3_bucket_name,
+            mturk_s3_region=args.mturk_aws_region,
             skip_vectors=args.skip_vectors,
             query_timeout=300,
             no_compress=args.no_compress,
