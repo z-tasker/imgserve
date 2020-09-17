@@ -1,38 +1,113 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: test-experiment-run-trial-
+  generateName: bias-fairness-transparency-trial-
   namespace: imgserve
 spec:
-  entrypoint: run-trial
+  entrypoint: run-trial-batch
   volumeClaimTemplates:                 
   - metadata:
-      name: workdir                     
+      name: workdir-0 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-1
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-2 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-3 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-4 
     spec:
       accessModes: [ "ReadWriteOnce" ]
       resources:
         requests:
           storage: 1Gi                  
   templates:
-  - name: run-trial
+  - name: run-trial-batch
+    steps:
+    - - name: parallel-trials
+        template: run-trial-slice
+        arguments:
+          parameters:
+          - name: batch_slice
+            value: "{{item.batch_slice}}"
+          - name: count
+            value: "{{item.count}}"
+        withItems:
+        - { count: "0", batch_slice: "0 of 10" }
+        - { count: "1", batch_slice: "1 of 10" }
+        - { count: "2", batch_slice: "2 of 10" }
+        - { count: "3", batch_slice: "3 of 10" }
+        - { count: "4", batch_slice: "4 of 10" }
+          #- { count: "5", batch_slice: "5 of 10" }
+          #- { count: "6", batch_slice: "6 of 10" }
+          #- { count: "7", batch_slice: "7 of 10" }
+          #- { count: "8", batch_slice: "8 of 10" }
+          #- { count: "9", batch_slice: "9 of 10" }
+          #- { count: "10", batch_slice: "10 of 10" }
+
+  - name: run-trial-slice
+    inputs:
+        parameters:
+        - name: batch_slice
+        - name: count
     securityContext:
       fsGroup: 1000
     container:
         image: mgraskertheband/imgserve-experiment:1.2.0
         imagePullPolicy: Always
         volumeMounts:                     # same syntax as k8s Pod spec
-        - name: workdir
+        - name: "workdir-{{inputs.parameters.count}}"
           mountPath: /mnt/imgserve
         securityContext:
           privileged: true
+        resources:
+          requests:
+            memory: 2512Mi
+            cpu: 300m
         args:
         - --experiment-name
-        - "null-test"
+        - "bias-fairness-transparency"
         - --run-trial
+        - --no-compress
+        - --extract-faces
+        - --cv2-cascade-min-neighbors
+        - "5"
+        - --create-mturk-cropped-face-images-hits 
+        - --mturk-cropped-face-images-hit-type-id 
+        - "3H6GKE2857JW448ET7U1S6TLX911E2" 
+        - --mturk-cropped-face-images-hit-layout-id 
+        - "3B8NZ1LJ2VPW5QHI54UUGV28Q11S10"
         - --no-prompt
         - --no-local-data
         - --remote-url
         - "https://comp-syn.ialcloud.xyz"
+        - --skip-already-searched
+        - --batch-slice
+        - "{{inputs.parameters.batch_slice}}"
+        - --trial-hostname
+        - "kube-fe"
+        - --trial-ids
+        - "fe-{{inputs.parameters.count}}"
         env:
         - name: ES_CLIENT_FQDN
           valueFrom:
@@ -94,12 +169,16 @@ spec:
         - name: IMGSERVE_LOCAL_DATA_STORE
           value: /mnt/imgserve
         - name: IMGSERVE_LOG_LEVEL
-          value: "10"
+          value: "20"
         - name: DOCKER_HOST               
           value: 127.0.0.1
     sidecars:
     - name: dind
       image: docker:18.09.4-dind
+      resources:
+        requests:
+          memory: 100Mi
+          cpu: 100m
       securityContext:
         privileged: true                
       mirrorVolumeMounts: true

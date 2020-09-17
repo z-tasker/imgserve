@@ -23,7 +23,7 @@ spec:
       securityContext:
         fsGroup: 1000
       container:
-          image: mgraskertheband/imgserve-experiment:1.0.1
+          image: mgraskertheband/imgserve-experiment:1.2.0
           imagePullPolicy: Always
           volumeMounts:                    
           - name: workdir
@@ -32,7 +32,7 @@ spec:
             privileged: true
           resources:
             requests:
-              memory: 32Mi
+              memory: 128Mi
               cpu: 100m
           args:
           - --experiment-name
@@ -109,6 +109,10 @@ spec:
       sidecars:
       - name: dind
         image: docker:18.09.4-dind
+        resources:
+          requests:
+            memory: 32Mi
+            cpu: 100m
         securityContext:
           privileged: true                
         mirrorVolumeMounts: true
