@@ -233,7 +233,7 @@ def run_trial(
                         mturk_layout_parameters = [
                             {
                                 "Name": "image_url",
-                                "Value": f"https://{mturk_s3_bucket_name}.s3.{mturk_s3_region}.amazonaws.com/" + str(Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]))
+                                "Value": f"https://{mturk_s3_bucket_name}.s3.{mturk_s3_region}.amazonaws.com/" + str(Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]).with_suffix(".jpg"))
                             },
                             {
                                 "Name": "search_term",
