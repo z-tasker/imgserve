@@ -138,7 +138,7 @@ async def respond_with_404(request: Request, message: str):
 
 
 @app.route("/")
-#@requires("authenticated")
+@requires("authenticated")
 async def home(request: Request):
     template = "home.html"
 
@@ -150,7 +150,7 @@ async def home(request: Request):
 
 
 @app.route("/archive")
-#@requires("authenticated", redirect="homepage")
+@requires("authenticated", redirect="homepage")
 async def archive(request: Request):
     if "experiment" in request.query_params:
         experiment = request.query_params["experiment"]
@@ -171,7 +171,7 @@ async def archive(request: Request):
 
 
 @app.route("/search")
-#@requires("authenticated", redirect="homepage")
+@requires("authenticated", redirect="homepage")
 async def search(request: Request):
     template = "search.html"
 
@@ -182,7 +182,7 @@ async def search(request: Request):
 
 
 @app.route("/sketch")
-#@requires("authenticated", redirect="homepage")
+@requires("authenticated", redirect="homepage")
 async def sketch(request: Request):
 
     default_experiment = None
@@ -206,15 +206,16 @@ async def sketch(request: Request):
 
 
 @app.route("/search")
-#@requires("authenticated", redirect="homepage")
+@requires("authenticated", redirect="homepage")
 async def search(request: Request):
 
     template = "search.html"
 
-    #experiments = get_experiments(ELASTICSEARCH_CLIENT)
+    experiments = get_experiments(ELASTICSEARCH_CLIENT)
 
     context = {
         "request": request,
+        "experiments": experiments
     }
     return templates.TemplateResponse(template, context)
 
@@ -272,7 +273,7 @@ async def experiments_listener(websocket: WebSocket):
                                             img_path.read_bytes()
                                         ).decode("utf-8"),
                                     }
-                                    for doc, img_path in experiment.get(request["get"].lower())
+                                    for doc, img_path in experiment.get(request["get"])
                                 ]
                             )
                         except FileNotFoundError as e:
@@ -294,7 +295,7 @@ async def experiments_listener(websocket: WebSocket):
                                     img_path.read_bytes()
                                 ).decode("utf-8"),
                             }
-                            for doc, img_path in experiment.get(request["get"].lower())
+                            for doc, img_path in experiment.get(request["get"])
                         ]
                     except FileNotFoundError as e:
                         log.info(f"no match for get request '{e}'")
@@ -302,10 +303,10 @@ async def experiments_listener(websocket: WebSocket):
 
                 if len(found) > 0:
                     resp = {
-                        "status": 200, 
+                        "status": 200,
                         "found": found[0] if request["single_value"] else found
                     }
-                else: 
+                else:
                     resp = {
                         "status": 404,
                         "message": "no colorgram for search term",
@@ -320,8 +321,8 @@ async def experiments_listener(websocket: WebSocket):
                 {"status": 200, "experiments": list(experiments.keys())}
             )
         elif request["action"] == "list_image_urls":
-            image_urls = [ 
-                image_url 
+            image_urls = [
+                image_url
                 for image_url in get_response_value(
                     elasticsearch_client=ELASTICSEARCH_CLIENT,
                     index="raw-images",
@@ -350,8 +351,8 @@ async def experiments_listener(websocket: WebSocket):
                 {"status": 200, "image_urls": image_urls}
             )
 
-            
-            
+
+
         else:
             await websocket.send_json(
                 {"status": 404, "message": f"no action found for {request['action']}"}
@@ -359,7 +360,7 @@ async def experiments_listener(websocket: WebSocket):
 
 
 @app.route("/experiments/{experiment_name}")
-#@requires("authenticated", redirect="homepage")
+@requires("authenticated", redirect="homepage")
 async def experiment_csv(request: Request) -> JSONResponse:
 
     experiment_name = request.path_params["experiment_name"]
