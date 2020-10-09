@@ -198,8 +198,8 @@ def get_response_value(
     drop_in: bool = False,
     composite_aggregation_name: Optional[str] = None,
 ) -> Union[Any, Generator[Any]]:
-    log.info(f"retrieving value from query against {index} at {value_keys}")
     if debug:
+        log.info(f"retrieving value from query against {index} at {value_keys}")
         print(f"GET /{index}/_search?size={size}\n{json.dumps(query,indent=2)}")
 
     resp = elasticsearch_client.search(index=index, body=query, size=size)
@@ -233,4 +233,5 @@ def get_response_value(
         else:
             yield from values
 
-        log.info(f"query returned {len(values) if values is not None else 0} values")
+        if debug:
+            log.info(f"query returned {len(values) if values is not None else 0} values")

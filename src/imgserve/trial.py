@@ -283,7 +283,7 @@ def run_trial(
                 elasticsearch_client=elasticsearch_client,
                 index=CROPPED_FACE_INDEX_PATTERN,
                 docs=face_documents,
-                identity_fields=["face_id"],
+                identity_fields=["face_id", "query"],
                 overwrite=False
             )
 

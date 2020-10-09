@@ -1,5 +1,5 @@
 {
-  "index_patterns": ["mturk-hits"],
+  "index_patterns": ["mturk-hits*"],
   "settings": {
     "number_of_shards": 1,
     "number_of_replicas": 1
@@ -124,7 +124,7 @@
       "hit_state": {
         "type": "keyword"
       },
-      "_internal_hit_id": {
+      "internal_hit_id": {
         "type": "keyword"
       },
       "mturk_hit_type_id": {

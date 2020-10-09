@@ -94,7 +94,7 @@ def main(args: argparse.Namespace) -> None:
                 hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
                     elasticsearch_client=elasticsearch_client,
                     index="cropped-face",
-                    query={"query": {"bool": {"filter": [{"term": json.loads(hit_resp["HIT"]["RequesterAnnotation"])}]}}},
+                    query={"query": {"bool": {"filter": json.loads(hit_resp["HIT"]["RequesterAnnotation"])}}},
                     size=1,
                     value_keys=["hits", "hits", "*", "_source"]
                 )][0]
@@ -173,6 +173,7 @@ def main(args: argparse.Namespace) -> None:
                             "-".join(
                                 [
                                     source["face_id"],
+                                    source["query"],
                                     args.mturk_cropped_face_images_hit_type_id,
                                     args.mturk_cropped_face_images_hit_layout_id,
                                     json.dumps(mturk_layout_parameters, sort_keys=True),
@@ -188,7 +189,7 @@ def main(args: argparse.Namespace) -> None:
                 if document_exists(
                     elasticsearch_client=elasticsearch_client,
                     doc=mturk_hit_document,
-                    index="mturk-hit*",
+                    index="mturk-hits*",
                     identity_fields=["internal_hit_id"]
                 ):
                     pbar.update(1)
@@ -198,9 +199,18 @@ def main(args: argparse.Namespace) -> None:
                     mturk_client=mturk_client,
                     mturk_hit_document=MturkHitDocument({"_source": mturk_hit_document}),
                     requester_annotation=json.dumps(
-                        {
-                            "face_id": Path(image_url).stem,
-                        }
+                        [
+                            {
+                                "term": {
+                                    "face_id": Path(image_url).stem,
+                                }
+                            },
+                            {
+                                "term": {
+                                    "query": source["query"],
+                                }
+                            },
+                        ]
                     ),
                 )
 
