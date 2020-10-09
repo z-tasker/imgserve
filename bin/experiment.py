@@ -391,13 +391,7 @@ def main(args: argparse.Namespace) -> None:
                     }
                 },
             },
-            value_keys=[
-                "aggregations",
-                "image_url",
-                "buckets",
-                "*",
-                "key",
-            ],
+            value_keys=["aggregations", "image_url", "buckets", "*", "key",],
             size=500,
             debug=True,
             composite_aggregation_name="image_url",
@@ -422,8 +416,9 @@ def main(args: argparse.Namespace) -> None:
             located_images += 1
             if located_images % 10000 == 0:
                 log.info(f"located {located_images} images")
-        log.info("images gathered: {args.local_data_store.joinpath(args.experiment_name).joinpath('original')}")
-
+        log.info(
+            "images gathered: {args.local_data_store.joinpath(args.experiment_name).joinpath('original')}"
+        )
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "imgserve"
 version = "2.1.0"
-description = "Loop experiments involving the internet"
+description = "Loop experiments involving the internet and humans"
 authors = ["Loop Fellow <loops@ialcloud.xyz>"]
 
 [tool.poetry.dependencies]
@@ -21,6 +21,7 @@ retry = "^0.9.2"
 opencv-python = "^4.4.0"
 imagehash = "^4.1.0"
 imgcat = "^0.5.0"
+xmltodict = "^0.12.0"
 
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"

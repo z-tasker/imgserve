@@ -16,7 +16,7 @@ from .elasticsearch import (
     index_to_elasticsearch,
     COLORGRAMS_INDEX_PATTERN,
     CROPPED_FACE_INDEX_PATTERN,
-    MTURK_HIT_INDEX_PATTERN,
+    MTURK_HITS_INDEX_PATTERN,
     RAW_IMAGES_INDEX_PATTERN,
 )
 from .errors import UnimplementedError
@@ -271,7 +271,7 @@ def run_trial(
             if len(mturk_hit_documents) > 0:
                 index_to_elasticsearch(
                     elasticsearch_client=elasticsearch_client,
-                    index=MTURK_HIT_INDEX_PATTERN,
+                    index=MTURK_HITS_INDEX_PATTERN,
                     docs=mturk_hit_documents,
                     identity_fields=["internal_hit_id"]
                 )

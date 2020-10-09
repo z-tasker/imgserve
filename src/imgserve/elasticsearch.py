@@ -21,12 +21,13 @@ log = simple_logger("imgserve.elasticsearch")
 COLORGRAMS_INDEX_PATTERN = "colorgrams"
 RAW_IMAGES_INDEX_PATTERN = "raw-images"
 CROPPED_FACE_INDEX_PATTERN = "cropped-face"
-MTURK_HIT_INDEX_PATTERN = "mturk-hit"
+MTURK_HITS_INDEX_PATTERN = "mturk-hits"
+MTURK_ANSWERS_INDEX_PATTERN = "mturk-answers"
 
 
 def _overridable_template_paths() -> Dict[str, Any]:
     template_paths = dict()
-    for index in ["colorgrams", "raw-images", "hosts", "cropped-face-images", "mturk-hits"]:
+    for index in ["colorgrams", "raw-images", "hosts", "cropped-face-images", "mturk-hits", "mturk-answers"]:
         template = json.loads(
             Path(__file__).parents[2].joinpath(f"db/{index}.template.json").read_text()
         )

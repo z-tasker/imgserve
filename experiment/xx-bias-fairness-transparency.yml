@@ -41,6 +41,48 @@ spec:
       resources:
         requests:
           storage: 1Gi                  
+  - metadata:
+      name: workdir-5 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-6
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-7 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-8 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-9 
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
+  - metadata:
+      name: workdir-10
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi                  
   templates:
   - name: run-trial-batch
     steps:
@@ -58,12 +100,12 @@ spec:
         - { count: "2", batch_slice: "2 of 10" }
         - { count: "3", batch_slice: "3 of 10" }
         - { count: "4", batch_slice: "4 of 10" }
-          #- { count: "5", batch_slice: "5 of 10" }
-          #- { count: "6", batch_slice: "6 of 10" }
-          #- { count: "7", batch_slice: "7 of 10" }
-          #- { count: "8", batch_slice: "8 of 10" }
-          #- { count: "9", batch_slice: "9 of 10" }
-          #- { count: "10", batch_slice: "10 of 10" }
+        - { count: "5", batch_slice: "5 of 10" }
+        - { count: "6", batch_slice: "6 of 10" }
+        - { count: "7", batch_slice: "7 of 10" }
+        - { count: "8", batch_slice: "8 of 10" }
+        - { count: "9", batch_slice: "9 of 10" }
+        - { count: "10", batch_slice: "10 of 10" }
 
   - name: run-trial-slice
     inputs:
@@ -94,9 +136,9 @@ spec:
         - "5"
         - --create-mturk-cropped-face-images-hits 
         - --mturk-cropped-face-images-hit-type-id 
-        - "3H6GKE2857JW448ET7U1S6TLX911E2" 
+        - "3D4VT3QYUCWL7JRPUQOUNKDGE1C4J8"
         - --mturk-cropped-face-images-hit-layout-id 
-        - "3B8NZ1LJ2VPW5QHI54UUGV28Q11S10"
+        - "3P675GGUDOGG2MSZW8JG2M9NXOWWF0"
         - --no-prompt
         - --no-local-data
         - --remote-url

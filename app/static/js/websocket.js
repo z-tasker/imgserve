@@ -55,7 +55,7 @@ function showImagesById(imageIds, itemId) {
         input_element = document.getElementById("get-query");
         request.get = input_element.value.trim();
         input_element.value = "";
-        
+
         var websocket = newWebSocket();
 
         websocket.onopen = function() {
@@ -121,7 +121,7 @@ function renderDoc(doc) {
     var prettyDoc = Object.assign(new Object(), doc);
     prettyDoc["downloads"] = `${prettyDoc["downloads"].length} images`;
     delete prettyDoc["s3_key"];
-    
+
     return JSON.stringify(prettyDoc, null, 2);
 }
 
@@ -139,13 +139,13 @@ function drawImageGridFromWebsocket(action, values_from, img_target) {
     input_element = document.getElementById("get-query");
     request.get = input_element.value.trim();
     input_element.value = "";
-    
+
     var websocket = newWebSocket();
 
     websocket.onopen = function() {
         console.log(`sending webhook for grid query: ${JSON.stringify(request)}`);
         websocket.send(JSON.stringify(request));
-        
+
     };
 
     websocket.onmessage = function(mesg) {
@@ -310,13 +310,13 @@ function getImageFromFormWebsocket(action, values_from, img_target, use_id) {
 }
 
 function bindSubmitButton(submitButton) {
-    submitButton.addEventListener("click touchstart", 
+    submitButton.addEventListener("click touchstart",
         function(){submitButton.value=submitButton.value.toLowerCase()}
     )
-    submitButton.addEventListener("click touchstart", 
+    submitButton.addEventListener("click touchstart",
         getImageFromFormWebsocket(
-            action="get", 
-            values_from=["get", "experiment"], 
+            action="get",
+            values_from=["get", "experiment"],
             img_target="colorgram",
             use_id=submitButton.id.replace("submit-", "")
         )

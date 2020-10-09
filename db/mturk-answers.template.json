@@ -1,0 +1,82 @@
+{
+  "index_patterns": ["mturk-hit"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "properties" : {
+      "experiment_name" : {
+        "type" : "keyword"
+      },
+      "trial_id" : {
+        "type" : "keyword"
+      },
+      "image_url" : {
+        "type" : "keyword"
+      },
+      "query" : {
+        "type" : "keyword"
+      },
+      "language" : {
+        "type" : "keyword"
+      },
+      "hostname" : {
+        "type" : "keyword"
+      },
+      "image_id" : {
+        "type" : "keyword"
+      },
+      "face_id" : {
+        "type" : "keyword"
+      },
+      "AcceptTime" : {
+        "format" : "date_time_no_millis",
+        "type" : "date"
+      },
+      "SubmitTime" : {
+        "format" : "date_time_no_millis",
+        "type" : "date"
+      },
+      "worker_seconds_spent": {
+        "type": "integer"
+      },
+      "AssignmentId": {
+        "type": "keyword"
+      },
+      "SearchTerm": {
+        "type": "keyword"
+      },
+      "gender": {
+        "type": "keyword"
+      },
+      "branchingFact": {
+        "type": "integer"
+      },
+      "HITId": {
+        "type": "keyword"
+      },
+      "freq": {
+        "type": "float"
+      },
+      "humface": {
+        "type": "keyword"
+      },
+      "catface": {
+        "type": "keyword"
+      },
+      "Trust": {
+        "type": "long"
+      },
+      "Emotion": {
+        "type": "long"
+      },
+      "race": {
+        "type": "keyword"
+      },
+      "bot": {
+        "type": "keyword"
+      }
+    }
+  }
+}
