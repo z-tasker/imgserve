@@ -142,6 +142,7 @@ def run_trial(
                 --user 1000:1000 \
                 --shm-size=2g \
                 -v {local_data_store}:/tmp/imgserve \
+                --rm \
                 --env QLOADER_BROWSER=Firefox \
                 --env S3_ACCESS_KEY_ID={s3_access_key_id} \
                 --env S3_SECRET_ACCESS_KEY={s3_secret_access_key} \
