@@ -126,7 +126,8 @@ def main(args: argparse.Namespace) -> None:
             elasticsearch_client=elasticsearch_client,
             index=MTURK_ANSWERS_INDEX_PATTERN,
             docs=mturk_answers,
-            identity_fields=["AssignmentId"]
+            identity_fields=["AssignmentId"],
+            apply_template=True,
         )
         return
 
@@ -204,6 +205,7 @@ def main(args: argparse.Namespace) -> None:
         index=MTURK_HITS_INDEX_PATTERN,
         docs=mturk_hit_documents,
         identity_fields=["internal_hit_id"],
+        apply_template=True,
     )
 
 
