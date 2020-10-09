@@ -8,6 +8,7 @@ from pathlib import Path
 
 import xmltodict
 from elasticsearch.helpers import scan
+from tqdm import tqdm
 
 from imgserve.api import Experiment, MturkHitDocument
 from imgserve.args import (
@@ -18,7 +19,7 @@ from imgserve.args import (
     get_s3_args,
 )
 from imgserve.clients import get_clients, get_mturk_client
-from imgserve.elasticsearch import index_to_elasticsearch, get_response_value, MTURK_HITS_INDEX_PATTERN, MTURK_ANSWERS_INDEX_PATTERN
+from imgserve.elasticsearch import document_exists, index_to_elasticsearch, get_response_value, MTURK_HITS_INDEX_PATTERN, MTURK_ANSWERS_INDEX_PATTERN
 from imgserve.logger import simple_logger
 from imgserve.mturk import create_mturk_image_hit
 
@@ -70,55 +71,57 @@ def main(args: argparse.Namespace) -> None:
 
     # import IPython; IPython.embed() # interactive mturk client
 
-    log.info("starting scan")
 
     if args.get_mturk_results:
 
+        log.info("scanning through reviewable HITs")
         reviewable_hits = 0
         mturk_answers = list()
-        for reviewable_hit in paginate_mturk(
-            mturk_client,
-            "list_reviewable_hits",
-            "HITs",
-            **{"HITTypeId": args.mturk_cropped_face_images_hit_type_id},
-        ):
-            reviewable_hits += 1
-            hit_resp = mturk_client.get_hit(HITId=reviewable_hit["HITId"])
-
-            if "RequesterAnnotation" not in hit_resp["HIT"]:
-                continue
-
-            hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
-                elasticsearch_client=elasticsearch_client,
-                index="cropped-face",
-                query={"query": {"bool": {"filter": [{"term": json.loads(hit_resp["HIT"]["RequesterAnnotation"])}]}}},
-                size=1,
-                value_keys=["hits", "hits", "*", "_source"]
-            )][0]
-
-            for assignment_resp in paginate_mturk(
+        with tqdm(desc="Scanning Reviewable MTurk HITs") as pbar:
+            for reviewable_hit in paginate_mturk(
                 mturk_client,
-                "list_assignments_for_hit",
-                "Assignments",
-                **{"HITId": reviewable_hit["HITId"]},
+                "list_reviewable_hits",
+                "HITs",
+                **{"HITTypeId": args.mturk_cropped_face_images_hit_type_id},
             ):
-                assignment_answer = xmltodict.parse(assignment_resp["Answer"])
-                mturk_answer = copy.deepcopy(hit_metadata)
-                mturk_answer.update(
-                    {
-                        "AssignmentId": assignment_resp["AssignmentId"],
-                        "AcceptTime": assignment_resp["AcceptTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        "SubmitTime": assignment_resp["SubmitTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        "worker_seconds_spent": (assignment_resp["SubmitTime"] - assignment_resp["AcceptTime"]).total_seconds()
-                    }
-                )
-                for answer in assignment_answer["QuestionFormAnswers"]["Answer"]:
+                reviewable_hits += 1
+                pbar.update(1)
+                hit_resp = mturk_client.get_hit(HITId=reviewable_hit["HITId"])
+
+                if "RequesterAnnotation" not in hit_resp["HIT"]:
+                    continue
+
+                hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
+                    elasticsearch_client=elasticsearch_client,
+                    index="cropped-face",
+                    query={"query": {"bool": {"filter": [{"term": json.loads(hit_resp["HIT"]["RequesterAnnotation"])}]}}},
+                    size=1,
+                    value_keys=["hits", "hits", "*", "_source"]
+                )][0]
+
+                for assignment_resp in paginate_mturk(
+                    mturk_client,
+                    "list_assignments_for_hit",
+                    "Assignments",
+                    **{"HITId": reviewable_hit["HITId"]},
+                ):
+                    assignment_answer = xmltodict.parse(assignment_resp["Answer"])
+                    mturk_answer = copy.deepcopy(hit_metadata)
                     mturk_answer.update(
                         {
-                            answer["QuestionIdentifier"]: answer["FreeText"]
+                            "AssignmentId": assignment_resp["AssignmentId"],
+                            "AcceptTime": assignment_resp["AcceptTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "SubmitTime": assignment_resp["SubmitTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "worker_seconds_spent": (assignment_resp["SubmitTime"] - assignment_resp["AcceptTime"]).total_seconds()
                         }
                     )
-                mturk_answers.append(mturk_answer)
+                    for answer in assignment_answer["QuestionFormAnswers"]["Answer"]:
+                        mturk_answer.update(
+                            {
+                                answer["QuestionIdentifier"]: answer["FreeText"]
+                            }
+                        )
+                    mturk_answers.append(mturk_answer)
 
         log.info(f"reviewed {len(mturk_answers)}/{reviewable_hits}")
         # index
@@ -129,84 +132,93 @@ def main(args: argparse.Namespace) -> None:
             identity_fields=["AssignmentId"],
             apply_template=True,
         )
-        return
 
-    query = {
-        "query": {
-            "bool": {"filter": [{"term": {"experiment_name": args.experiment_name}},]}
-        }
-    }
-    count = 0
-    search_terms = list()
-    mturk_hit_documents = list()
-    for cropped_face in scan(
-        client=elasticsearch_client, index="cropped-face*", query=query
-    ):
-        source = cropped_face["_source"]
-        image_url = (
-            "https://compsyn.s3.ca-central-1.amazonaws.com/bias-fairness-transparency/faces/"
-            + source["face_id"]
-            + ".jpg"
-        )
-        search_term = source["SearchTerm"]
-        if search_term in search_terms:
-            continue
-        else:
-            search_terms.append(search_term)
+    else:
 
-        mturk_layout_parameters = [
-            {"Name": "image_url", "Value": image_url},
-            {"Name": "search_term", "Value": search_term},
-        ]
-
-        mturk_hit_document = copy.deepcopy(source)
-        mturk_hit_document.update(
-            {
-                "hit_state": "submitted",
-                "internal_hit_id": hashlib.sha256(
-                    "-".join(
-                        [
-                            source["face_id"],
-                            args.mturk_cropped_face_images_hit_type_id,
-                            args.mturk_cropped_face_images_hit_layout_id,
-                            json.dumps(mturk_layout_parameters, sort_keys=True),
-                        ]
-                    ).encode("utf-8")
-                ).hexdigest(),
-                "mturk_hit_type_id": args.mturk_cropped_face_images_hit_type_id,
-                "mturk_hit_layout_id": args.mturk_cropped_face_images_hit_layout_id,
-                "mturk_layout_parameters": mturk_layout_parameters,
+        log.info("creating MTURK HITs for each cropped-face document")
+        query = {
+            "query": {
+                "bool": {"filter": [{"term": {"experiment_name": args.experiment_name}},]}
             }
+        }
+        count = 0
+        search_terms = list()
+        mturk_hit_documents = list()
+        with tqdm(total=elasticsearch_client.count(index="cropped-face*", body=query)["count"], desc="Creating MTurk HITs from cropped-face documents") as pbar:
+            for cropped_face in scan(
+                client=elasticsearch_client, index="cropped-face*", query=query
+            ):
+                source = cropped_face["_source"]
+                image_url = (
+                    "https://compsyn.s3.ca-central-1.amazonaws.com/bias-fairness-transparency/faces/"
+                    + source["face_id"]
+                    + ".jpg"
+                )
+                search_term = source["SearchTerm"]
+                if search_term in search_terms:
+                    continue
+                else:
+                    search_terms.append(search_term)
+
+                mturk_layout_parameters = [
+                    {"Name": "image_url", "Value": image_url},
+                    {"Name": "search_term", "Value": search_term},
+                ]
+
+                mturk_hit_document = copy.deepcopy(source)
+                mturk_hit_document.update(
+                    {
+                        "hit_state": "submitted",
+                        "internal_hit_id": hashlib.sha256(
+                            "-".join(
+                                [
+                                    source["face_id"],
+                                    args.mturk_cropped_face_images_hit_type_id,
+                                    args.mturk_cropped_face_images_hit_layout_id,
+                                    json.dumps(mturk_layout_parameters, sort_keys=True),
+                                ]
+                            ).encode("utf-8")
+                        ).hexdigest(),
+                        "mturk_hit_type_id": args.mturk_cropped_face_images_hit_type_id,
+                        "mturk_hit_layout_id": args.mturk_cropped_face_images_hit_layout_id,
+                        "mturk_layout_parameters": mturk_layout_parameters,
+                    }
+                )
+
+                if document_exists(
+                    elasticsearch_client=elasticsearch_client,
+                    doc=mturk_hit_document,
+                    index="mturk-hit*",
+                    identity_fields=["internal_hit_id"]
+                ):
+                    pbar.update(1)
+                    continue
+
+                mturk_hit_document = create_mturk_image_hit(
+                    mturk_client=mturk_client,
+                    mturk_hit_document=MturkHitDocument({"_source": mturk_hit_document}),
+                    requester_annotation=json.dumps(
+                        {
+                            "face_id": Path(image_url).stem,
+                        }
+                    ),
+                )
+
+                mturk_hit_documents.append(mturk_hit_document.source)
+
+                pbar.update(1)
+                count += 1
+                if count >= 2:
+                    break
+
+        log.info(f"indexing {count} documents to elasticsearch")
+        index_to_elasticsearch(
+            elasticsearch_client=elasticsearch_client,
+            index=MTURK_HITS_INDEX_PATTERN,
+            docs=mturk_hit_documents,
+            identity_fields=["internal_hit_id"],
+            apply_template=True,
         )
-
-        log.info(image_url)
-        log.info(search_term)
-
-        mturk_hit_document = create_mturk_image_hit(
-            mturk_client=mturk_client,
-            mturk_hit_document=MturkHitDocument({"_source": mturk_hit_document}),
-            requester_annotation=json.dumps(
-                {
-                    "face_id": Path(image_url).stem,
-                }
-            ),
-        )
-
-        mturk_hit_documents.append(mturk_hit_document.source)
-
-        count += 1
-        if count >= 2:
-            break
-
-    log.info(f"indexing {count} documents to elasticsearch")
-    print(mturk_hit_documents[0])
-    index_to_elasticsearch(
-        elasticsearch_client=elasticsearch_client,
-        index=MTURK_HITS_INDEX_PATTERN,
-        docs=mturk_hit_documents,
-        identity_fields=["internal_hit_id"],
-        apply_template=True,
-    )
 
 
 if __name__ == "__main__":
