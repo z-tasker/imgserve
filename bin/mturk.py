@@ -89,14 +89,21 @@ def main(args: argparse.Namespace) -> None:
                 hit_resp = mturk_client.get_hit(HITId=reviewable_hit["HITId"])
 
                 if "RequesterAnnotation" not in hit_resp["HIT"]:
+                    # annotation does not exist
+                    continue
+
+                annotation_filter = json.loads(hit_resp["HIT"]["RequesterAnnotation"])
+                if not isinstance(annotation_filter, list):
+                    # annotation filter is not the right format
                     continue
 
                 hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
                     elasticsearch_client=elasticsearch_client,
                     index="cropped-face",
-                    query={"query": {"bool": {"filter": json.loads(hit_resp["HIT"]["RequesterAnnotation"])}}},
+                    query={"query": {"bool": {"filter": annotation_filter}}},
                     size=1,
-                    value_keys=["hits", "hits", "*", "_source"]
+                    value_keys=["hits", "hits", "*", "_source"],
+                    #debug=True
                 )][0]
 
                 for assignment_resp in paginate_mturk(
