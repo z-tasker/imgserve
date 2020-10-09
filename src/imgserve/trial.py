@@ -158,7 +158,7 @@ def run_trial(
                     --max-images {max_images} \
                     --output-path /tmp/imgserve/ \
                     --metadata-path /tmp/imgserve/{trial_id}/.metadata-{trial_timestamp}.json'
-            log.info(docker_run_command)
+            #log.info(docker_run_command)
             if no_compress:
                 docker_run_command += ' --no-compress'
             try:
