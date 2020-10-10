@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import requests
 import xmltodict
 from elasticsearch.helpers import scan
 from tqdm import tqdm
@@ -40,6 +41,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+class ImageUrlNon200ResponseCodeError(Exception):
+    pass
+
+
+def validate_image_url(image_url: str) -> None:
+    resp = requests.head(image_url)
+    if resp.status_code != 200:
+        raise ImageUrlNon200ResponseCodeError(f"{image_url} gave {resp.status_code} response code.")
+
+
 def paginate_mturk(
     mturk_client: MturkClient, client_method: str, iterator_key: str, **kwargs
 ) -> Generator[Dict[str, Any], None, None]:
@@ -59,6 +70,21 @@ def paginate_mturk(
     log.debug(f"{pages} pages of {client_method} results yielded")
 
 
+def format_filter(filty: Dict[str, Any]) -> Dict[str, Any]:
+    for filter_type, filter_compact in filty.items():
+        field = list(filter_compact.keys())[0]
+        value = list(filter_compact.values())[0]
+        if filter_type == "term":
+            return {
+                "term": {
+                    field: {
+                        "value": value
+                    }
+                }
+            }
+        else:
+            raise Exception(f"filter type {filter_type} is unimplemented from RequesterAnnotation")
+
 def main(args: argparse.Namespace) -> None:
     """ image gathering trial and analysis of arbitrary trials"""
 
@@ -69,13 +95,15 @@ def main(args: argparse.Namespace) -> None:
 
     log.info(f"mturk @ {mturk_client.meta._endpoint_url} has balance: ${mturk_client.get_account_balance()['AvailableBalance']}")
 
-    # import IPython; IPython.embed() # interactive mturk client
+    #import IPython; IPython.embed() # interactive mturk client
 
 
     if args.get_mturk_results:
 
         log.info("scanning through reviewable HITs")
         reviewable_hits = 0
+        unindexed_hits = list()
+        malformed_hits = list()
         mturk_answers = list()
         with tqdm(desc="Scanning Reviewable MTurk HITs") as pbar:
             for reviewable_hit in paginate_mturk(
@@ -90,21 +118,34 @@ def main(args: argparse.Namespace) -> None:
 
                 if "RequesterAnnotation" not in hit_resp["HIT"]:
                     # annotation does not exist
+                    malformed_hits.append(reviewable_hit["HITId"])
                     continue
 
                 annotation_filter = json.loads(hit_resp["HIT"]["RequesterAnnotation"])
                 if not isinstance(annotation_filter, list):
                     # annotation filter is not the right format
+                    malformed_hits.append(reviewable_hit["HITId"])
                     continue
+                annotation_filter.append({"term": {"experiment_name": args.experiment_name}})
+                formatted_filter = list()
+                for filty in annotation_filter:
+                    formatted_filter.append(format_filter(filty))
+                annotation_filter = formatted_filter
 
-                hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
-                    elasticsearch_client=elasticsearch_client,
-                    index="cropped-face",
-                    query={"query": {"bool": {"filter": annotation_filter}}},
-                    size=1,
-                    value_keys=["hits", "hits", "*", "_source"],
-                    #debug=True
-                )][0]
+
+                try:
+                    hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
+                        elasticsearch_client=elasticsearch_client,
+                        index="mturk-hits*",
+                        query={"query": {"bool": {"filter": annotation_filter}}},
+                        size=1,
+                        value_keys=["hits", "hits", "*", "_source"],
+                        #debug=True
+                    )][0]
+                    del hit_metadata["Question"] # too big
+                except IndexError:
+                    unindexed_hits.append(annotation_filter)
+                    continue
 
                 for assignment_resp in paginate_mturk(
                     mturk_client,
@@ -131,6 +172,9 @@ def main(args: argparse.Namespace) -> None:
                     mturk_answers.append(mturk_answer)
 
         log.info(f"reviewed {len(mturk_answers)}/{reviewable_hits}")
+        log.info(f"{len(unindexed_hits)} mturk-hits documents for ReviewableHITs were not indexed in Elasticsearch.")
+        #log.info(json.dumps(unindexed_hits))
+        log.info(f"{len(malformed_hits)} HITs had malformed RequesterAnnotation field for use by this program.")
         # index
         index_to_elasticsearch(
             elasticsearch_client=elasticsearch_client,
@@ -157,10 +201,12 @@ def main(args: argparse.Namespace) -> None:
             ):
                 source = cropped_face["_source"]
                 image_url = (
-                    "https://compsyn.s3.ca-central-1.amazonaws.com/bias-fairness-transparency/faces/"
+                    f"https://compsyn.s3.ca-central-1.amazonaws.com/{args.experiment_name}/faces/"
                     + source["face_id"]
                     + ".jpg"
                 )
+                #validate image_url is working
+                validate_image_url(image_url)
                 search_term = source["SearchTerm"]
                 if search_term in search_terms:
                     continue
@@ -225,7 +271,7 @@ def main(args: argparse.Namespace) -> None:
 
                 pbar.update(1)
                 count += 1
-                if count >= 2:
+                if count >= 5:
                     break
 
         log.info(f"indexing {count} documents to elasticsearch")
