@@ -12,6 +12,9 @@
       "trial_id" : {
         "type" : "keyword"
       },
+      "face_id" : {
+        "type" : "keyword"
+      },
       "host_created" : {
         "format" : "date_time_no_millis",
         "type" : "date"

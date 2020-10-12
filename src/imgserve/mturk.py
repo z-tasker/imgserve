@@ -1,4 +1,5 @@
 from __future__ import annotations
+import time
 
 from .api import MturkHitDocument
 
@@ -7,6 +8,7 @@ def create_mturk_image_hit(mturk_client: botocore.clients.mturk, mturk_hit_docum
     See boto3 documentation for a description of all available parameters:
     https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mturk.html#MTurk.Client.create_hit_with_hit_type
     """
+    start = time.time()
     mturk_hit_resp = mturk_client.create_hit_with_hit_type(
         HITTypeId=mturk_hit_document.source["mturk_hit_type_id"],
         HITLayoutId=mturk_hit_document.source["mturk_hit_layout_id"],
@@ -15,6 +17,10 @@ def create_mturk_image_hit(mturk_client: botocore.clients.mturk, mturk_hit_docum
         LifetimeInSeconds=3600,
         RequesterAnnotation=requester_annotation,
     )
+
+    api_runtime = time.time() - start
+    if api_runtime > 1:
+        print(f"SLOW MTURK: HIT created in {time.time() - start}")
 
     mturk_hit_document.source.update(hit_state="created")
 
@@ -32,5 +38,7 @@ def create_mturk_image_hit(mturk_client: botocore.clients.mturk, mturk_hit_docum
             ]
         }
     )
+
+
 
     return mturk_hit_document

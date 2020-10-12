@@ -51,10 +51,6 @@ def get_mturk_client(args: argparse.Namespace) -> Optional[botocore.clients.mtur
         if not args.skip_mturk_cropped_face_images:
             arg_issues.append("Cannot create cropped face HITs while skipping face detection")
 
-    if args.mturk_s3_bucket_name is None:
-        args.mturk_s3_bucket_name = args.s3_bucket
-
-
     if args.mturk_access_key_id is None and args.mturk_secret_access_key is None:
         args.mturk_access_key_id = args.s3_access_key_id
         args.mturk_secret_access_key = args.s3_secret_access_key

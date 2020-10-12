@@ -221,7 +221,7 @@ def get_response_value(
                 after=after_key
             )
             resp = elasticsearch_client.search(index=index, body=query, size=size)
-        log.info(f"composite aggregation yielded {values} values")
+        log.debug(f"composite aggregation yielded {values} values")
 
     else:
         values = [value for value in recurse_splat_key(resp, value_keys)]

@@ -101,11 +101,6 @@ def get_mturk_args(
     mturk_parser = parser.add_argument_group("mturk")
 
     mturk_parser.add_argument(
-        "--mturk-s3-bucket-name",
-        type=str,
-        required=False
-    )
-    mturk_parser.add_argument(
         "--mturk-aws-region",
         default=os.getenv("AWS_REGION_NAME", None),
         type=str,

@@ -218,7 +218,7 @@ def run_trial(
                         s3_client=s3_client,
                         image=face_image,
                         bucket=mturk_s3_bucket_name,
-                        object_path=Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]).with_suffix(".jpg"),
+                        object_path=Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]).with_suffix(".jpg"), # each unique face will have it's image bytes stored one time.
                         overwrite=False,
                     )
                     face_batch.append(face_doc)
@@ -228,64 +228,13 @@ def run_trial(
                 raw_image_doc.update(number_of_faces=len(face_batch))
                 updated_trial_run_manifest.append(raw_image_doc)
 
-                if not skip_mturk_cropped_face_images:
-                    # MTurk hit creation is indexing hits to Elasticsearch
-                    for face_doc in face_batch:
-                        mturk_hit_document = copy.deepcopy(image_document_shared)
-                        mturk_layout_parameters = [
-                            {
-                                "Name": "image_url",
-                                "Value": f"https://{mturk_s3_bucket_name}.s3.{mturk_s3_region}.amazonaws.com/" + str(Path(experiment_name).joinpath("faces").joinpath(face_doc["face_id"]).with_suffix(".jpg"))
-                            },
-                            {
-                                "Name": "search_term",
-                                "Value": search_term
-                            }
-                        ]
-                        mturk_hit_document.update(
-                            {
-                                "hit_state": "indexed",
-                                "internal_hit_id": hashlib.sha256(
-                                    "-".join(
-                                        [
-                                            face_doc["face_id"],
-                                            mturk_cropped_face_images_hit_type_id,
-                                            mturk_cropped_face_images_hit_layout_id,
-                                            json.dumps(mturk_layout_parameters, sort_keys=True),
-                                        ]
-                                    ).encode("utf-8")
-                                ).hexdigest(),
-                                "mturk_hit_type_id": mturk_cropped_face_images_hit_type_id,
-                                "mturk_hit_layout_id": mturk_cropped_face_images_hit_layout_id,
-                                "mturk_layout_parameters": mturk_layout_parameters,
-                            }
-                        )
-
-                        if mturk_in_realtime:
-                            # Can optionally create mturk HIT at query time
-                            mturk_hit_document = create_mturk_image_hit(
-                                mturk_client=mturk_client,
-                                mturk_hit_document=MturkHitDocument({"_source": mturk_hit_document}),
-                            )
-
-                        mturk_hit_documents.append(mturk_hit_document)
-
-            if len(mturk_hit_documents) > 0:
-                index_to_elasticsearch(
-                    elasticsearch_client=elasticsearch_client,
-                    index=MTURK_HITS_INDEX_PATTERN,
-                    docs=mturk_hit_documents,
-                    identity_fields=["internal_hit_id"]
-                )
-
-
             # finish face detection, update raw images data with metadata about faces
             trial_run_manifest.write_text(json.dumps(updated_trial_run_manifest))
             index_to_elasticsearch(
                 elasticsearch_client=elasticsearch_client,
                 index=CROPPED_FACE_INDEX_PATTERN,
                 docs=face_documents,
-                identity_fields=["face_id", "query"],
+                identity_fields=["face_id", "query"], # this makes it so that we only store each cropped face in elasticsearch once for the query that returned it.
                 overwrite=False
             )
 
