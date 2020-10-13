@@ -245,7 +245,6 @@ def main(args: argparse.Namespace) -> None:
         }
         image_urls_work = False
         count = 0
-        search_terms = list()
         mturk_hit_documents = list()
         with tqdm(total=elasticsearch_client.count(index="cropped-face*", body=query)["count"], desc="Creating MTurk HITs from cropped-face documents") as pbar:
             for cropped_face in scan(
@@ -263,10 +262,6 @@ def main(args: argparse.Namespace) -> None:
                     image_urls_work = True
 
                 search_term = source["SearchTerm"]
-                if search_term in search_terms:
-                    continue
-                else:
-                    search_terms.append(search_term)
 
                 mturk_layout_parameters = [
                     {"Name": "image_url", "Value": image_url},
@@ -327,7 +322,8 @@ def main(args: argparse.Namespace) -> None:
                 mturk_hit_documents.append(mturk_hit_document.source)
 
                 pbar.update(1)
-                if len(mturk_hit_documents)>= 100:
+                if len(mturk_hit_documents) >= 42:
+                    print(len(mturk_hit_documents), "mturk hits assembled, breaking")
                     break
 
         if len(mturk_hit_documents) > 0:
