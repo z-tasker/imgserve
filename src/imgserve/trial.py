@@ -26,7 +26,7 @@ from .utils import get_batch_slice
 from .vectors import get_vectors
 from .faces import facechop
 
-QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.6.1"
+QUERY_RUNNER_IMAGE = "mgraskertheband/qloader:4.6.2"
 
 
 @retry(tries=5, backoff=2, delay=1)
