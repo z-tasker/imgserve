@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main>
+  <div class="gallery">
+      {% for image_src in image_urls %}
+          <div class="double-column">
+              <div class="solo-image">
+                  <img src="{{ image_src }}">
+              </div>
+          </div>
+      {% endfor %}
+      {% for cropped_face_url_column in cropped_face_urls | batch(3, 'pad') %}
+          <div class="column">
+          {% for cropped_face_url in cropped_face_url_column %}
+              {% if cropped_face_url != 'pad' %}
+                  <div class="colorgram">
+                      <img src="{{ cropped_face_url }}">
+                  </div>
+              {% endif %}
+          {% endfor %}
+          </div>
+      {% endfor %}
+  </div>
+  <div class="sidebar" id="docs-query"></div>
+  <div id="spinner" class="spinner"><img src="static/img/load.gif"></div>
+  <div class="status" id="search-status"></div>
+</main>
+{% endblock %}

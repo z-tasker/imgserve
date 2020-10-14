@@ -6,8 +6,12 @@ body{
 
 .banner {
   display: block;
-	width:100%;
-	margin-bottom: 20px;
+  width:100%;
+  margin-bottom: 20px;
+}
+
+.solo-image img {
+  max-height: 50%;
 }
 
 .navigation {
@@ -71,6 +75,25 @@ a.navlink {
 
 .column img {
   margin-top: 0px;
+  max-height: 10%;
+  margin-right: 0px;
+  margin-left: 0px;
+  vertical-align: middle;
+  width: 90%;
+  max-height: 100%;
+}
+
+.double-column {
+  flex: 30%;
+  max-width: 40%;
+  padding: 0 2px;
+  text-align: center;
+  white-space: nowrap;
+  max-height: 100%;
+}
+
+.double-column img {
+  margin-top: 0px;
   max-height: 15%;
   margin-right: 0px;
   margin-left: 0px;
@@ -132,6 +155,7 @@ button {
 .raw-image {
   margin: 5px;
   position: relative;
+  max-height: 5em;
 }
 
 .colorgram {

@@ -205,6 +205,7 @@ async def sketch(request: Request):
     return templates.TemplateResponse(template, context)
 
 
+
 @app.route("/search")
 @requires("authenticated", redirect="homepage")
 async def search(request: Request):
@@ -216,6 +217,77 @@ async def search(request: Request):
     context = {
         "request": request,
         "experiments": experiments
+    }
+    return templates.TemplateResponse(template, context)
+
+
+@app.route("/image")
+async def get_image(request: Request):
+    image_id = request.query_params["image_id"]
+
+    image_urls = [
+        image_url
+        for image_url in get_response_value(
+            elasticsearch_client=ELASTICSEARCH_CLIENT,
+            index="raw-images",
+            query={
+                "query": {
+                    "bool": {
+                        "filter": {"term": {"image_id": image_id}}
+                    }
+                },
+                "aggregations": {
+                    "image_url": {
+                        "terms": {
+                            "field": "image_url",
+                            "size": 250,
+                        }
+                    }
+                }
+            },
+            value_keys=["aggregations", "image_url", "buckets", "*", "key"],
+            size=0,
+            #debug=True,
+        )
+    ]
+
+    s3_region_name = S3_CLIENT.meta._client_config.__dict__["region_name"]
+    s3_bucket = "compsyn"
+    cropped_face_urls = [
+        f"https://{s3_bucket}.s3.{s3_region_name}.amazonaws.com/{key['experiment_name']}/faces/{key['face_id']}.jpg"
+        for key in get_response_value(
+            elasticsearch_client=ELASTICSEARCH_CLIENT,
+            index="cropped-face*",
+            query={
+                "query": {
+                    "bool": {
+                        "filter": {"term": {"image_id": image_id}}
+                    }
+                },
+                "aggregations": {
+                    "face_image": {
+                        "composite": {
+                            "size": 500,
+                            "sources": [
+                                {"face_id": { "terms": { "field": "face_id" }}},
+                                {"experiment_name": { "terms": { "field": "experiment_name" }}},
+                            ]
+                        }
+                    }
+                }
+            },
+            value_keys=["aggregations", "face_image", "buckets", "*", "key"],
+            size=0,
+            #debug=True,
+            composite_aggregation_name="face_image"
+        )
+    ]
+
+    template = "image.html"
+    context = {
+        "request": request,
+        "image_urls": image_urls,
+        "cropped_face_urls": cropped_face_urls,
     }
     return templates.TemplateResponse(template, context)
 
