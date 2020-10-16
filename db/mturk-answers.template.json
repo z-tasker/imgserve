@@ -44,11 +44,36 @@
       "AssignmentId": {
         "type": "keyword"
       },
+      "WorkerId": {
+        "type": "keyword"
+      },
       "SearchTerm": {
         "type": "keyword"
       },
-      "gender": {
-        "type": "keyword"
+      "response": {
+          "properties": {
+              "gender": {
+                "type": "keyword"
+              },
+              "humface": {
+                "type": "keyword"
+              },
+              "catface": {
+                "type": "keyword"
+              },
+              "Trust": {
+                "type": "long"
+              },
+              "Emotion": {
+                "type": "long"
+              },
+              "race": {
+                "type": "keyword"
+              },
+              "bot": {
+                "type": "keyword"
+              }
+          }
       },
       "branchingFact": {
         "type": "integer"
@@ -58,24 +83,6 @@
       },
       "freq": {
         "type": "float"
-      },
-      "humface": {
-        "type": "keyword"
-      },
-      "catface": {
-        "type": "keyword"
-      },
-      "Trust": {
-        "type": "long"
-      },
-      "Emotion": {
-        "type": "long"
-      },
-      "race": {
-        "type": "keyword"
-      },
-      "bot": {
-        "type": "keyword"
       }
     }
   }
