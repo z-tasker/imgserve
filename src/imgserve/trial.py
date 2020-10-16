@@ -107,6 +107,9 @@ def run_trial(
     # TODO: optional "user browser" query
     for search_term, csv_metadata in trial_slice:
 
+        if search_term == "":
+            continue
+
         if skip_already_searched and document_exists(
             elasticsearch_client=elasticsearch_client,
             doc={

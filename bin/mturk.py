@@ -38,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mturk-hit-cap", type=int, help="maximum number of hits allowed to be in pending state for this experiment", default=10)
     parser.add_argument("--gather-all-from-mturk", action="store_true", help="reindex everything that is available in mturk, regardless of hit_state")
     parser.add_argument("--create-mturk-hits-from-index", action="store_true", help="create Mturk hits from those with hit_state: indexed")
+    parser.add_argument("--json-archive", type=Path, help="write json to this file")
     get_elasticsearch_args(parser)
     get_s3_args(parser)
     get_mturk_args(parser)
@@ -303,12 +304,43 @@ def main(args: argparse.Namespace) -> None:
                 pbar.update(1)
                 created += 1
 
+    elif args.json_archive is not None:
+        write_to = Path(args.json_archive)
+        if write_to.is_file() or write_to.suffix != ".json":
+            raise FileExistsError("File must not exist and end with .json")
+        query = {
+            "query": {
+                "bool": {
+                    "filter": [
+                        {"term": {"experiment_name": args.experiment_name}},
+                    ],
+                }
+            }
+        }
+        experiment_mturk_count = elasticsearch_client.count(index="mturk-answers*", body=query)["count"]
+        experiment_mturk_answers = list()
+        with tqdm(total=experiment_mturk_count, desc="gather mturk-answers for a JSON archive") as pbar:
+            for mturk_answer in scan(
+                client=elasticsearch_client, index="mturk-answers*", query=query, size=100
+            ):
+                for drop_field in ["internal_hit_id", "HITStatus", "mturk_status"]:
+                    del mturk_answer["_source"][drop_field]
+                experiment_mturk_answers.append(mturk_answer["_source"])
+                pbar.update(1)
+
+            write_to.write_text(json.dumps(experiment_mturk_answers, indent=2))
+        log.info(f"write {len(experiment_mturk_answers)} ({write_to.stat().st_size/1000000:.1f} MB) experiment answers as JSON to {write_to}")
+
+
     else:
 
         query = {
             "query": {
                 "bool": {
-                    "filter": [{"term": {"experiment_name": args.experiment_name}},],
+                    "filter": [
+                        {"term": {"experiment_name": args.experiment_name}},
+                        #{"term": {"Demo.keyword": "null"}}
+                    ],
                     "must": {
                       "function_score": {
                         "functions": [ { "random_score": {"seed": "randomlyresumable1234"} } ],
