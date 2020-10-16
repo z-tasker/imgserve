@@ -142,6 +142,12 @@ def fields_in_hits(hits: Iterator[Dict[str, Any]]) -> List[str]:
     return list(fields)
 
 
+def batch(iterable: Iterable, n: int = 1) -> Generator[Iterable, None, None]:
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx:min(ndx + n, l)]
+
+
 @retry(tries=3, backoff=5, delay=2)
 def index_to_elasticsearch(
     elasticsearch_client: Elasticsearch,
@@ -150,6 +156,7 @@ def index_to_elasticsearch(
     identity_fields: Optional[List[str]] = None,
     overwrite: bool = False,
     apply_template: bool = False,
+    batch_size: Optional[int] = None,
 ) -> None:
 
     if apply_template:
@@ -162,11 +169,17 @@ def index_to_elasticsearch(
                 f"no index template for {index}, please add one to db/{index}.template.json and update '_overridable_template_paths' in src/imgserve/elasticsearch.py"
             ) from e
 
-    elasticsearch.helpers.bulk(
-        elasticsearch_client,
-        doc_gen(elasticsearch_client, docs, index, identity_fields, overwrite),
-    )
-
+    if batch_size is None:
+        elasticsearch.helpers.bulk(
+            elasticsearch_client,
+            doc_gen(elasticsearch_client, docs, index, identity_fields, overwrite),
+        )
+    else:
+        for docs_batch in batch(docs, n=batch_size):
+            elasticsearch.helpers.bulk(
+                elasticsearch_client,
+                doc_gen(elasticsearch_client, docs_batch, index, identity_fields, overwrite),
+            )
     log.info("bulk indexing complete")
 
 

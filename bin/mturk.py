@@ -32,9 +32,12 @@ from imgserve.mturk import create_mturk_image_hit
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--get-mturk-results", action="store_true", help="get mturk")
+    parser.add_argument("--get-mturk-results", action="store_true", help="check for completion and review mturk hits with hit_state: created")
     parser.add_argument("--commit-mturk-results", action="store_true", help="Commiting mturk results means disposing of the HIT and marking the elasticsearch mturk-answers documents as 'committed'")
     parser.add_argument("--make-pickle", type=Path, help="path to save pickle to")
+    parser.add_argument("--mturk-hit-cap", type=int, help="maximum number of hits allowed to be in pending state for this experiment", default=10)
+    parser.add_argument("--gather-all-from-mturk", action="store_true", help="reindex everything that is available in mturk, regardless of hit_state")
+    parser.add_argument("--create-mturk-hits-from-index", action="store_true", help="create Mturk hits from those with hit_state: indexed")
     get_elasticsearch_args(parser)
     get_s3_args(parser)
     get_mturk_args(parser)
@@ -112,101 +115,115 @@ def main(args: argparse.Namespace) -> None:
         mturk_answers = list()
         mturk_pickles = list()
         reviewed_docs = list()
+        reviewable_hits_filter = [
+            {"term": {"experiment_name": args.experiment_name}},
+        ]
+        if not args.gather_all_from_mturk:
+            reviewable_hits_filter.append({"term": {"hit_state": "created"}})
+
         with tqdm(total=elasticsearch_client.count(index="mturk-hits*", body={
-            "query": {"bool": {"filter": [{"term": {"experiment_name": args.experiment_name}}]}}
+            "query": {"bool": {"filter": reviewable_hits_filter}}
         })["count"], desc="Scanning Reviewable MTurk HITs") as pbar:
             # replace with for HITId in elasticsearch, get_hit
-            for hit in get_response_value(
-                elasticsearch_client=elasticsearch_client,
-                index="mturk-hits*",
-                query={
-                    "query": {"bool": {"filter": [{"term": {"experiment_name": args.experiment_name}}]}},
-                    "aggregations": {
-                        "hit_id": {
-                            "composite": {
-                                "size": 500,
-                                "sources": [
-                                    {"hit_id": {"terms": { "field": "HITId" }}},
-                                    {"hit_state": {"terms": {"field": "hit_state"}}},
-                                    {"doc_id": {"terms": { "field": "_id" }}},
-                                ]
+            try:
+                for hit in get_response_value(
+                    elasticsearch_client=elasticsearch_client,
+                    index="mturk-hits*",
+                    query={
+                        "query": {"bool": {"filter": reviewable_hits_filter }},
+                        "aggregations": {
+                            "hit_id": {
+                                "composite": {
+                                    "size": 500,
+                                    "sources": [
+                                        {"hit_id": {"terms": { "field": "HITId" }}},
+                                        {"doc_id": {"terms": { "field": "_id" }}},
+                                    ]
+                                }
                             }
                         }
-                    }
-                },
-                value_keys=["aggregations", "hit_id", "buckets", "*", "key"],
-                #debug=True,
-                composite_aggregation_name="hit_id"
-            ):
-                all_hits += 1
-                pbar.update(1)
-                if hit["hit_state"] != "created":
-                    continue
-                hit_resp = mturk_client.get_hit(HITId=hit["hit_id"])
-                if hit_resp["HIT"]["HITStatus"] != "Reviewable":
-                    continue
-                reviewable_hits += 1
-
-                if "RequesterAnnotation" not in hit_resp["HIT"]:
-                    # annotation does not exist
-                    malformed_hits.append(hit["hit_id"])
-                    continue
-
-                annotation_filter = json.loads(hit_resp["HIT"]["RequesterAnnotation"])
-                if not isinstance(annotation_filter, list):
-                    # annotation filter is not the right format
-                    malformed_hits.append(hit["hit_id"])
-                    continue
-
-                reviewed_hits.append(hit["hit_id"])
-
-                annotation_filter.append({"term": {"experiment_name": args.experiment_name}})
-                formatted_filter = list()
-                for filty in annotation_filter:
-                    formatted_filter.append(format_filter(filty))
-                annotation_filter = formatted_filter
-
-                try:
-                    hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
-                        elasticsearch_client=elasticsearch_client,
-                        index="mturk-hits*",
-                        query={"query": {"bool": {"filter": annotation_filter}}},
-                        size=1,
-                        value_keys=["hits", "hits", "*", "_source"],
-                        #debug=True
-                    )][0]
-                    del hit_metadata["Question"] # too big
-                except IndexError:
-                    unindexed_hits.append(annotation_filter)
-                    continue
-
-                for assignment_resp in paginate_mturk(
-                    mturk_client,
-                    "list_assignments_for_hit",
-                    "Assignments",
-                    **{"HITId": hit["hit_id"]},
+                    },
+                    value_keys=["aggregations", "hit_id", "buckets", "*", "key"],
+                    #debug=True,
+                    composite_aggregation_name="hit_id"
                 ):
-                    if args.make_pickle is not None:
-                        mturk_pickles.append(assignment_resp)
-                    assignment_answer = xmltodict.parse(assignment_resp["Answer"])
-                    mturk_answer = copy.deepcopy(hit_metadata)
-                    mturk_answer.update(
-                        {
-                            "AssignmentId": assignment_resp["AssignmentId"],
-                            "AcceptTime": assignment_resp["AcceptTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                            "SubmitTime": assignment_resp["SubmitTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                            "worker_seconds_spent": (assignment_resp["SubmitTime"] - assignment_resp["AcceptTime"]).total_seconds(),
-                            "mturk_status": "Reviewable" if not args.commit_mturk_results else "Committed",
-                        }
-                    )
-                    for answer in assignment_answer["QuestionFormAnswers"]["Answer"]:
+                    all_hits += 1
+                    pbar.update(1)
+                    hit_resp = mturk_client.get_hit(HITId=hit["hit_id"])
+                    if hit_resp["HIT"]["HITStatus"] != "Reviewable":
+                        continue
+                    reviewable_hits += 1
+
+                    if "RequesterAnnotation" not in hit_resp["HIT"]:
+                        # annotation does not exist
+                        malformed_hits.append(hit["hit_id"])
+                        continue
+
+                    annotation_filter = json.loads(hit_resp["HIT"]["RequesterAnnotation"])
+                    if not isinstance(annotation_filter, list):
+                        # annotation filter is not the right format
+                        malformed_hits.append(hit["hit_id"])
+                        continue
+
+                    reviewed_hits.append(hit["hit_id"])
+
+                    annotation_filter.append({"term": {"experiment_name": args.experiment_name}})
+                    formatted_filter = list()
+                    for filty in annotation_filter:
+                        formatted_filter.append(format_filter(filty))
+                    annotation_filter = formatted_filter
+
+                    try:
+                        hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
+                            elasticsearch_client=elasticsearch_client,
+                            index="mturk-hits*",
+                            query={"query": {"bool": {"filter": annotation_filter}}},
+                            size=1,
+                            value_keys=["hits", "hits", "*", "_source"],
+                            #debug=True
+                        )][0]
+                        if "Question" in hit_metadata:
+                            del hit_metadata["Question"] # too big
+                    except IndexError:
+                        unindexed_hits.append(annotation_filter)
+                        continue
+
+                    for assignment_resp in paginate_mturk(
+                        mturk_client,
+                        "list_assignments_for_hit",
+                        "Assignments",
+                        **{"HITId": hit["hit_id"]},
+                    ):
+                        if args.make_pickle is not None:
+                            mturk_pickles.append(assignment_resp)
+                        assignment_answer = xmltodict.parse(assignment_resp["Answer"])
+                        mturk_answer = copy.deepcopy(hit_metadata)
+                        assignment_resp
                         mturk_answer.update(
                             {
-                                answer["QuestionIdentifier"]: answer["FreeText"]
+                                "AssignmentId": assignment_resp["AssignmentId"],
+                                "WorkerId": assignment_resp["WorkerId"],
+                                "AcceptTime": assignment_resp["AcceptTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "SubmitTime": assignment_resp["SubmitTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                "worker_seconds_spent": (assignment_resp["SubmitTime"] - assignment_resp["AcceptTime"]).total_seconds(),
+                                "mturk_status": "Reviewable" if not args.commit_mturk_results else "Committed",
                             }
                         )
-                    mturk_answers.append(mturk_answer)
-                reviewed_docs.append(hit["doc_id"])
+                        for answer in assignment_answer["QuestionFormAnswers"]["Answer"]:
+                            mturk_answer.update(
+                                {
+                                    answer["QuestionIdentifier"]: answer["FreeText"]
+                                }
+                            )
+                        mturk_answers.append(mturk_answer)
+                    reviewed_docs.append(hit["doc_id"])
+            except KeyError as exc:
+                print(str(exc))
+
+                if "No composite aggregation continuation key found at 'hit_id'" in str(exc):
+                    log.info(f"0 mturk-hits had experiment_name={args.experiment_name} and hit_state=created, run with --gather-all-from-mturk to ignore hit_state (for instance, if re-initializing the answers when starting an experiment)")
+                else:
+                    raise KeyError("While gathering Reviewable hits (hit_state: created)") from exc
 
         log.info(f"reviewed {len(reviewed_docs)}/{reviewable_hits}")
         if len(unindexed_hits) > 0:
@@ -234,19 +251,78 @@ def main(args: argparse.Namespace) -> None:
         # update mturk representation of reviewed_hits?
         # if there is no burden of holding these hits until they expire, that is probably preferable
 
+    elif args.create_mturk_hits_from_index:
+        createable_hit_filter = {"query": {"bool": {"filter": [
+            {"term": { "hit_state": "indexed" }}
+        ]}}}
+
+        mturk_hit_cap_space = args.mturk_hit_cap - elasticsearch_client.count(index="mturk-hits*", body={
+            "query": {
+                "bool": {"filter": [
+                    {"term": {"experiment_name": args.experiment_name}},
+                    {"terms": {"hit_state": ["created"]}}
+                ]}
+            }
+        }
+        )["count"]
+        log.info(f"attempting to create {mturk_hit_cap_space} mturk hits out of " + str(elasticsearch_client.count(index="mturk-hits*", body=createable_hit_filter)["count"]) + " indexed mturk-hits")
+        created = 0
+        with tqdm(
+            total=mturk_hit_cap_space,
+            desc="Creating MTurk HITs and updating index to hit_state: created..."
+        ) as pbar:
+            for createable_hit in scan(
+                client=elasticsearch_client, index="mturk-hits*", query=createable_hit_filter
+            ):
+                if created >= mturk_hit_cap_space:
+                    break
+                # submit the HITs to mturk
+                source = createable_hit["_source"]
+                updated_hit_documents = list()
+                mturk_hit_document = create_mturk_image_hit(
+                    mturk_client=mturk_client,
+                    mturk_hit_document=MturkHitDocument(createable_hit),
+                    requester_annotation=json.dumps(
+                        [
+                            {
+                                "term": {
+                                    "face_id": source["face_id"],
+                                }
+                            },
+                            {
+                                "term": {
+                                    "query": source["query"],
+                                }
+                            },
+                        ]
+                    ),
+                )
+
+                del mturk_hit_document.source["Question"] # too much data to store each xml question
+                elasticsearch_client.update("mturk-hits", createable_hit["_id"], {"doc": mturk_hit_document.source})
+                pbar.update(1)
+                created += 1
 
     else:
 
-        log.info("creating MTURK HITs for each cropped-face document")
         query = {
             "query": {
-                "bool": {"filter": [{"term": {"experiment_name": args.experiment_name}},]}
+                "bool": {
+                    "filter": [{"term": {"experiment_name": args.experiment_name}},],
+                    "must": {
+                      "function_score": {
+                        "functions": [ { "random_score": {"seed": "randomlyresumable1234"} } ],
+                        "boost_mode": "replace"
+                      }
+                    }
+                }
             }
         }
         image_urls_work = False
-        count = 0
+        experiment_face_count = elasticsearch_client.count(index="cropped-face*", body=query)["count"]
+        log.info(f"creating mturk hits for {experiment_face_count} cropped faces.")
         mturk_hit_documents = list()
-        with tqdm(total=elasticsearch_client.count(index="cropped-face*", body=query)["count"], desc="Creating MTurk HITs from cropped-face documents") as pbar:
+        with tqdm(total=experiment_face_count, desc="Scanning cropped-face documents to create mturk-hits") as pbar:
             for cropped_face in scan(
                 client=elasticsearch_client, index="cropped-face*", query=query
             ):
@@ -271,7 +347,7 @@ def main(args: argparse.Namespace) -> None:
                 mturk_hit_document = copy.deepcopy(source)
                 mturk_hit_document.update(
                     {
-                        "hit_state": "submitted",
+                        "hit_state": "indexed",
                         "internal_hit_id": hashlib.sha256(
                             "-".join(
                                 [
@@ -295,46 +371,29 @@ def main(args: argparse.Namespace) -> None:
                     index="mturk-hits*",
                     identity_fields=["internal_hit_id"]
                 ):
+                    # more sophisticated approach -> involve Expiration date field for determining if hit is already "in the system" or not
                     # skip faces that already have an associated mturk hit
-                    pbar.update(1)
                     continue
 
-                # submit the HIT to mturk
-                mturk_hit_document = create_mturk_image_hit(
-                    mturk_client=mturk_client,
-                    mturk_hit_document=MturkHitDocument({"_source": mturk_hit_document}),
-                    requester_annotation=json.dumps(
-                        [
-                            {
-                                "term": {
-                                    "face_id": Path(image_url).stem,
-                                }
-                            },
-                            {
-                                "term": {
-                                    "query": source["query"],
-                                }
-                            },
-                        ]
-                    ),
-                )
 
-                mturk_hit_documents.append(mturk_hit_document.source)
+                mturk_hit_documents.append(mturk_hit_document)
 
                 pbar.update(1)
-                if len(mturk_hit_documents) >= 42:
-                    print(len(mturk_hit_documents), "mturk hits assembled, breaking")
-                    break
+                if len(mturk_hit_documents) >= 1000:
+                    # Index to Elasticsearch for every 1000 indexable hits
+                    index_to_elasticsearch(
+                        elasticsearch_client=elasticsearch_client,
+                        index=MTURK_HITS_INDEX_PATTERN,
+                        docs=mturk_hit_documents,
+                        identity_fields=["internal_hit_id"],
+                        apply_template=True,
+                        batch_size=500, # big documents, use small batches for indexing
+                    )
+                    mturk_hit_documents = list()
 
-        if len(mturk_hit_documents) > 0:
-            log.info(f"indexing {len(mturk_hit_documents)} documents to elasticsearch")
-            index_to_elasticsearch(
-                elasticsearch_client=elasticsearch_client,
-                index=MTURK_HITS_INDEX_PATTERN,
-                docs=mturk_hit_documents,
-                identity_fields=["internal_hit_id"],
-                apply_template=True,
-            )
+
+
+
     # NOTE: this approach leaves HITs in MTurk in a "Reviewable" state, as completion logic is handled in Elasticsearch.
     # does accumulating Reviewable HITs slow down the get_hit API call?
     # optionally pickle before discarding?

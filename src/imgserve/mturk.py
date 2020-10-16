@@ -14,7 +14,8 @@ def create_mturk_image_hit(mturk_client: botocore.clients.mturk, mturk_hit_docum
         HITLayoutId=mturk_hit_document.source["mturk_hit_layout_id"],
         HITLayoutParameters=mturk_hit_document.source["mturk_layout_parameters"],
         MaxAssignments=1,
-        LifetimeInSeconds=3600,
+        LifetimeInSeconds=1209600,
+        #AutoApprovalDelayInSeconds=900, # not supported here, must be set in HitType?
         RequesterAnnotation=requester_annotation,
     )
 
