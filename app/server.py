@@ -253,35 +253,38 @@ async def get_image(request: Request):
 
     s3_region_name = S3_CLIENT.meta._client_config.__dict__["region_name"]
     s3_bucket = "compsyn"
-    cropped_face_urls = [
-        f"https://{s3_bucket}.s3.{s3_region_name}.amazonaws.com/{key['experiment_name']}/faces/{key['face_id']}.jpg"
-        for key in get_response_value(
-            elasticsearch_client=ELASTICSEARCH_CLIENT,
-            index="cropped-face*",
-            query={
-                "query": {
-                    "bool": {
-                        "filter": {"term": {"image_id": image_id}}
-                    }
-                },
-                "aggregations": {
-                    "face_image": {
-                        "composite": {
-                            "size": 500,
-                            "sources": [
-                                {"face_id": { "terms": { "field": "face_id" }}},
-                                {"experiment_name": { "terms": { "field": "experiment_name" }}},
-                            ]
+    try:
+        cropped_face_urls = [
+            f"https://{s3_bucket}.s3.{s3_region_name}.amazonaws.com/{key['experiment_name']}/faces/{key['face_id']}.jpg"
+            for key in get_response_value(
+                elasticsearch_client=ELASTICSEARCH_CLIENT,
+                index="cropped-face*",
+                query={
+                    "query": {
+                        "bool": {
+                            "filter": {"term": {"image_id": image_id}}
+                        }
+                    },
+                    "aggregations": {
+                        "face_image": {
+                            "composite": {
+                                "size": 500,
+                                "sources": [
+                                    {"face_id": { "terms": { "field": "face_id" }}},
+                                    {"experiment_name": { "terms": { "field": "experiment_name" }}},
+                                ]
+                            }
                         }
                     }
-                }
-            },
-            value_keys=["aggregations", "face_image", "buckets", "*", "key"],
-            size=0,
-            #debug=True,
-            composite_aggregation_name="face_image"
-        )
-    ]
+                },
+                value_keys=["aggregations", "face_image", "buckets", "*", "key"],
+                size=0,
+                #debug=True,
+                composite_aggregation_name="face_image"
+            )
+        ]
+    except KeyError:
+        cropped_face_urls = list()
 
     template = "image.html"
     context = {

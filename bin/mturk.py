@@ -77,6 +77,21 @@ def paginate_mturk(
     log.debug(f"{pages} pages of {client_method} results yielded")
 
 
+def index_answers_update_hits(elasticsearch_client: Elasticsearch, mturk_answers: List[Dict[str, Any]], reviewed_docs: List[str]) -> None:
+    # index
+    index_to_elasticsearch(
+        elasticsearch_client=elasticsearch_client,
+        index=MTURK_ANSWERS_INDEX_PATTERN,
+        docs=mturk_answers,
+        identity_fields=["AssignmentId"],
+        apply_template=True,
+        quiet=True,
+    )
+    with tqdm(total=len(reviewed_docs), desc="Update Reviewed MTurk HITs in Elasticsearch") as pbar:
+        for reviewed_doc in reviewed_docs:
+            elasticsearch_client.update("mturk-hits", reviewed_doc, {"doc": {"hit_state": "reviewed"}})
+            pbar.update(1)
+
 def format_filter(filty: Dict[str, Any]) -> Dict[str, Any]:
     for filter_type, filter_compact in filty.items():
         field = list(filter_compact.keys())[0]
@@ -208,16 +223,21 @@ def main(args: argparse.Namespace) -> None:
                                 "SubmitTime": assignment_resp["SubmitTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
                                 "worker_seconds_spent": (assignment_resp["SubmitTime"] - assignment_resp["AcceptTime"]).total_seconds(),
                                 "mturk_status": "Reviewable" if not args.commit_mturk_results else "Committed",
+                                "response": dict()
                             }
                         )
                         for answer in assignment_answer["QuestionFormAnswers"]["Answer"]:
-                            mturk_answer.update(
+                            mturk_answer["response"].update(
                                 {
                                     answer["QuestionIdentifier"]: answer["FreeText"]
                                 }
                             )
                         mturk_answers.append(mturk_answer)
                     reviewed_docs.append(hit["doc_id"])
+                    if len(mturk_answers) >= 100:
+                        index_answers_update_hits(elasticsearch_client, mturk_answers, reviewed_docs)
+                        mturk_answers = list()
+                        reviewed_docs = list()
             except KeyError as exc:
                 print(str(exc))
 
@@ -231,26 +251,7 @@ def main(args: argparse.Namespace) -> None:
             log.warning(f"{len(unindexed_hits)} mturk-hits documents for ReviewableHITs were not indexed in Elasticsearch.")
         if len(malformed_hits) > 0:
             log.info(f"{len(malformed_hits)} HITs had malformed RequesterAnnotation field for use by this program.")
-        #if args.commit_mturk_results:
-        #    all_unindexable = unindexed_hits + malformed_hits
-        # pickle all hits and answers?
-        if args.make_pickle is not None:
-            pickle.dump(mturk_pickles, open(Path(args.make_pickle).with_suffix(".p"), "wb"))
-            log.info(f"pickled {len(mturk_pickles)} mturk assignments")
-        # index
-        index_to_elasticsearch(
-            elasticsearch_client=elasticsearch_client,
-            index=MTURK_ANSWERS_INDEX_PATTERN,
-            docs=mturk_answers,
-            identity_fields=["AssignmentId"],
-            apply_template=True,
-        )
-        with tqdm(total=len(reviewed_docs), desc="Update Reviewed MTurk HITs in Elasticsearch") as pbar:
-            for reviewed_doc in reviewed_docs:
-                elasticsearch_client.update("mturk-hits", reviewed_doc, {"doc": {"hit_state": "reviewed"}})
-                pbar.update(1)
-        # update mturk representation of reviewed_hits?
-        # if there is no burden of holding these hits until they expire, that is probably preferable
+        index_answers_update_hits(elasticsearch_client, mturk_answers, reviewed_docs)
 
     elif args.create_mturk_hits_from_index:
         createable_hit_filter = {"query": {"bool": {"filter": [

@@ -108,6 +108,7 @@ def doc_gen(
     index: str,
     identity_fields: Optional[List[str]],
     overwrite: bool,
+    quiet: bool = False
 ) -> Generator[Dict[str, Any], None, None]:
 
     if identity_fields is not None:
@@ -126,10 +127,11 @@ def doc_gen(
         doc.update(_index=index)
         yield doc
         yielded += 1
-    log.info(
-        f"{yielded} documents yielded for indexing to {index}"
-        + (f" ({exists} already existed)" if exists > 0 else "")
-    )
+    if not quiet:
+        log.info(
+            f"{yielded} documents yielded for indexing to {index}"
+            + (f" ({exists} already existed)" if exists > 0 else "")
+        )
 
 
 def fields_in_hits(hits: Iterator[Dict[str, Any]]) -> List[str]:
@@ -157,6 +159,7 @@ def index_to_elasticsearch(
     overwrite: bool = False,
     apply_template: bool = False,
     batch_size: Optional[int] = None,
+    quiet: bool = False
 ) -> None:
 
     if apply_template:
@@ -172,15 +175,16 @@ def index_to_elasticsearch(
     if batch_size is None:
         elasticsearch.helpers.bulk(
             elasticsearch_client,
-            doc_gen(elasticsearch_client, docs, index, identity_fields, overwrite),
+            doc_gen(elasticsearch_client, docs, index, identity_fields, overwrite, quiet),
         )
     else:
         for docs_batch in batch(docs, n=batch_size):
             elasticsearch.helpers.bulk(
                 elasticsearch_client,
-                doc_gen(elasticsearch_client, docs_batch, index, identity_fields, overwrite),
+                doc_gen(elasticsearch_client, docs_batch, index, identity_fields, overwrite, quiet),
             )
-    log.info("bulk indexing complete")
+    if not quiet:
+        log.info("bulk indexing complete")
 
 
 @retry(tries=3, backoff=5, delay=2)

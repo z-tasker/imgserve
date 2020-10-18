@@ -81,6 +81,9 @@
       "HITId": {
         "type": "keyword"
       },
+      "Reward": {
+        "type": "float"
+      },
       "freq": {
         "type": "float"
       }
