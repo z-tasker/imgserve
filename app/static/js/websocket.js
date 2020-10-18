@@ -82,7 +82,7 @@ function showImagesById(imageIds, itemId) {
 
                     function appendResult(item, index) {
                         ++i
-                        if (i > 5) {
+                        if (i > 20) {
                             ++j;
                             i = 0;
                             column = document.createElement("div");
