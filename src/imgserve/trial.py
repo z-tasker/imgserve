@@ -107,7 +107,7 @@ def run_trial(
     # TODO: optional "user browser" query
     for search_term, csv_metadata in trial_slice:
 
-        if search_term == "":
+        if search_term.strip() == "":
             continue
 
         if skip_already_searched and document_exists(

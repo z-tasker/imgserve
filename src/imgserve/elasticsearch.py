@@ -234,6 +234,7 @@ def get_response_value(
                 yield value
                 values += 1
 
+            after_key = resp["aggregations"][composite_aggregation_name]["after_key"]
             query["aggregations"][composite_aggregation_name]["composite"].update(
                 after=after_key
             )
