@@ -107,6 +107,13 @@ def format_filter(filty: Dict[str, Any]) -> Dict[str, Any]:
         else:
             raise Exception(f"filter type {filter_type} is unimplemented from RequesterAnnotation")
 
+def indexify_params(ind: int, params: List[Dict[str,str]]) -> List[Dict[str, str]]:
+    indexified = list()
+    for param in params:
+        param["Name"] = "_".join([param["Name"], str(ind)])
+        indexified.append(param)
+    return indexified
+
 def main(args: argparse.Namespace) -> None:
     """ image gathering trial and analysis of arbitrary trials"""
 
@@ -117,7 +124,7 @@ def main(args: argparse.Namespace) -> None:
 
     log.info(f"mturk @ {mturk_client.meta._endpoint_url} has balance: ${mturk_client.get_account_balance()['AvailableBalance']}")
 
-    #import IPython; IPython.embed() # interactive mturk client
+#    import IPython; IPython.embed() # interactive mturk client
 
 
     if args.get_mturk_results:
@@ -142,6 +149,9 @@ def main(args: argparse.Namespace) -> None:
         })["count"], desc="Scanning Reviewable MTurk HITs") as pbar:
             # replace with for HITId in elasticsearch, get_hit
             try:
+                # TODO: replace with batch of 5 parsing logic:
+                # 1. for each HITId find all mturk-hit docs corresponding to that HITId
+                # 2. iterate over
                 for hit in get_response_value(
                     elasticsearch_client=elasticsearch_client,
                     index="mturk-hits*",
@@ -153,7 +163,7 @@ def main(args: argparse.Namespace) -> None:
                                     "size": 500,
                                     "sources": [
                                         {"hit_id": {"terms": { "field": "HITId" }}},
-                                        {"doc_id": {"terms": { "field": "_id" }}},
+                    #                    {"doc_id": {"terms": { "field": "_id" }}},
                                     ]
                                 }
                             }
@@ -166,43 +176,25 @@ def main(args: argparse.Namespace) -> None:
                     all_hits += 1
                     pbar.update(1)
                     hit_resp = mturk_client.get_hit(HITId=hit["hit_id"])
+                    #import IPython; IPython.embed()
                     if hit_resp["HIT"]["HITStatus"] != "Reviewable":
                         continue
                     reviewable_hits += 1
 
-                    if "RequesterAnnotation" not in hit_resp["HIT"]:
-                        # annotation does not exist
-                        malformed_hits.append(hit["hit_id"])
-                        continue
-
-                    annotation_filter = json.loads(hit_resp["HIT"]["RequesterAnnotation"])
-                    if not isinstance(annotation_filter, list):
-                        # annotation filter is not the right format
-                        malformed_hits.append(hit["hit_id"])
-                        continue
-
                     reviewed_hits.append(hit["hit_id"])
 
-                    annotation_filter.append({"term": {"experiment_name": args.experiment_name}})
                     formatted_filter = list()
-                    for filty in annotation_filter:
-                        formatted_filter.append(format_filter(filty))
-                    annotation_filter = formatted_filter
+                    formatted_filter.append({"term": {"experiment_name": args.experiment_name}})
+                    formatted_filter.append({"term": {"HITId": hit["hit_id"]}})
 
-                    try:
-                        hit_metadata: Dict[str, str] = [resp for resp in get_response_value(
-                            elasticsearch_client=elasticsearch_client,
-                            index="mturk-hits*",
-                            query={"query": {"bool": {"filter": annotation_filter}}},
-                            size=1,
-                            value_keys=["hits", "hits", "*", "_source"],
-                            #debug=True
-                        )][0]
-                        if "Question" in hit_metadata:
-                            del hit_metadata["Question"] # too big
-                    except IndexError:
-                        unindexed_hits.append(annotation_filter)
-                        continue
+                    corresponding_hits: Dict[str, str] = [resp for resp in get_response_value(
+                        elasticsearch_client=elasticsearch_client,
+                        index="mturk-hits*",
+                        query={"query": {"bool": {"filter": formatted_filter}}},
+                        size=10,
+                        value_keys=["hits", "hits"],
+                        #debug=True
+                    )][0]
 
                     for assignment_resp in paginate_mturk(
                         mturk_client,
@@ -210,34 +202,42 @@ def main(args: argparse.Namespace) -> None:
                         "Assignments",
                         **{"HITId": hit["hit_id"]},
                     ):
-                        if args.make_pickle is not None:
-                            mturk_pickles.append(assignment_resp)
                         assignment_answer = xmltodict.parse(assignment_resp["Answer"])
-                        mturk_answer = copy.deepcopy(hit_metadata)
-                        assignment_resp
-                        mturk_answer.update(
-                            {
-                                "AssignmentId": assignment_resp["AssignmentId"],
-                                "WorkerId": assignment_resp["WorkerId"],
-                                "AcceptTime": assignment_resp["AcceptTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                "SubmitTime": assignment_resp["SubmitTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                "worker_seconds_spent": (assignment_resp["SubmitTime"] - assignment_resp["AcceptTime"]).total_seconds(),
-                                "mturk_status": "Reviewable" if not args.commit_mturk_results else "Committed",
-                                "response": dict()
-                            }
-                        )
-                        for answer in assignment_answer["QuestionFormAnswers"]["Answer"]:
-                            mturk_answer["response"].update(
+                        # TODO: 5 batch logic here, each hit still gets its own answer doc
+                        for corresponding_hit in corresponding_hits:
+                            mturk_answer = copy.deepcopy(corresponding_hit["_source"])
+                            if "Question" in mturk_answer:
+                                del mturk_answer["Question"]
+                            mturk_answer.update(
                                 {
-                                    answer["QuestionIdentifier"]: answer["FreeText"]
+                                    "AssignmentId": assignment_resp["AssignmentId"],
+                                    "WorkerId": assignment_resp["WorkerId"],
+                                    "AcceptTime": assignment_resp["AcceptTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                    "SubmitTime": assignment_resp["SubmitTime"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                                    "worker_seconds_spent": (assignment_resp["SubmitTime"] - assignment_resp["AcceptTime"]).total_seconds(),
+                                    "mturk_status": "Reviewable" if not args.commit_mturk_results else "Committed",
+                                    "response": dict()
                                 }
                             )
-                        mturk_answers.append(mturk_answer)
-                    reviewed_docs.append(hit["doc_id"])
-                    if len(mturk_answers) >= 100:
-                        index_answers_update_hits(elasticsearch_client, mturk_answers, reviewed_docs)
-                        mturk_answers = list()
-                        reviewed_docs = list()
+                            ind_suffix = f"_{corresponding_hit['_source']['ind']}"
+                            for answer in assignment_answer["QuestionFormAnswers"]["Answer"]:
+                                if answer["QuestionIdentifier"].endswith(ind_suffix):
+                                    mturk_answer["response"].update(
+                                        {
+                                            answer["QuestionIdentifier"].replace(ind_suffix, ""): answer["FreeText"]
+                                        }
+                                    )
+                                if answer["QuestionIdentifier"] == "bot":
+                                    mturk_answer["response"].update(bot=answer["FreeText"])
+                            if len(mturk_answer["response"]) == 1 and list(mturk_answer["response"].keys())[0] == "bot":
+                                raise ValueError(f"could not find response for {ind_suffix}")
+                            mturk_answers.append(mturk_answer)
+                        reviewed_docs.extend([hit["_id"] for hit in corresponding_hits])
+                        #import IPython; IPython.embed()
+                        if len(mturk_answers) >= 100:
+                            index_answers_update_hits(elasticsearch_client, mturk_answers, reviewed_docs)
+                            mturk_answers = list()
+                            reviewed_docs = list()
             except KeyError as exc:
                 print(str(exc))
 
@@ -246,7 +246,6 @@ def main(args: argparse.Namespace) -> None:
                 else:
                     raise KeyError("While gathering Reviewable hits (hit_state: created)") from exc
 
-        log.info(f"reviewed {len(reviewed_docs)}/{reviewable_hits}")
         if len(unindexed_hits) > 0:
             log.warning(f"{len(unindexed_hits)} mturk-hits documents for ReviewableHITs were not indexed in Elasticsearch.")
         if len(malformed_hits) > 0:
@@ -273,37 +272,39 @@ def main(args: argparse.Namespace) -> None:
             total=mturk_hit_cap_space,
             desc="Creating MTurk HITs and updating index to hit_state: created..."
         ) as pbar:
+            batch_5 = list()
             for createable_hit in scan(
                 client=elasticsearch_client, index="mturk-hits*", query=createable_hit_filter
             ):
                 if created >= mturk_hit_cap_space:
                     break
-                # submit the HITs to mturk
-                source = createable_hit["_source"]
-                updated_hit_documents = list()
-                mturk_hit_document = create_mturk_image_hit(
-                    mturk_client=mturk_client,
-                    mturk_hit_document=MturkHitDocument(createable_hit),
-                    requester_annotation=json.dumps(
-                        [
-                            {
-                                "term": {
-                                    "face_id": source["face_id"],
-                                }
-                            },
-                            {
-                                "term": {
-                                    "query": source["query"],
-                                }
-                            },
-                        ]
-                    ),
-                )
 
-                del mturk_hit_document.source["Question"] # too much data to store each xml question
-                elasticsearch_client.update("mturk-hits", createable_hit["_id"], {"doc": mturk_hit_document.source})
-                pbar.update(1)
-                created += 1
+                batch_5.append(createable_hit)
+                if len(batch_5) == 5:
+                    layout_parameters = list() 
+                    for ind, hit_doc in enumerate(batch_5):
+                        # add layout params, and mark each hit with it's index in the hitid
+                        layout_parameters.extend(indexify_params(ind, hit_doc["_source"]["mturk_layout_parameters"]))
+
+                    #import IPython; IPython.embed()
+                    # submit the HITs to mturk
+                    mturk_hit_document = create_mturk_image_hit(
+                        mturk_client=mturk_client,
+                        mturk_hit_type_id=args.mturk_cropped_face_images_hit_type_id,
+                        mturk_hit_layout_id=args.mturk_cropped_face_images_hit_layout_id,
+                        mturk_hit_layout_parameters=layout_parameters
+                    )
+                    mturk_hit_document["Reward"] = float(mturk_hit_document["Reward"]) / 5
+                    del mturk_hit_document["Question"] # too much data to store each xml question
+
+                    for ind, hit_doc in enumerate(batch_5):
+                        mturk_hit_document["ind"] = ind
+                        elasticsearch_client.update("mturk-hits", hit_doc["_id"], {"doc": mturk_hit_document})
+
+                    pbar.update(5)
+                    created += 5
+                    batch_5 = list()
+                # TODO: this will drop the last batch if it is not exactly 5 items large.
 
     elif args.json_archive is not None:
         write_to = Path(args.json_archive)
@@ -340,14 +341,7 @@ def main(args: argparse.Namespace) -> None:
                 "bool": {
                     "filter": [
                         {"term": {"experiment_name": args.experiment_name}},
-                        #{"term": {"Demo.keyword": "null"}}
-                    ],
-                    "must": {
-                      "function_score": {
-                        "functions": [ { "random_score": {"seed": "randomlyresumable1234"} } ],
-                        "boost_mode": "replace"
-                      }
-                    }
+                    ]
                 }
             }
         }
@@ -355,74 +349,104 @@ def main(args: argparse.Namespace) -> None:
         experiment_face_count = elasticsearch_client.count(index="cropped-face*", body=query)["count"]
         log.info(f"creating mturk hits for {experiment_face_count} cropped faces.")
         mturk_hit_documents = list()
-        with tqdm(total=experiment_face_count, desc="Scanning cropped-face documents to create mturk-hits") as pbar:
-            for cropped_face in scan(
-                client=elasticsearch_client, index="cropped-face*", query=query
-            ):
-                source = cropped_face["_source"]
-                image_url = (
-                    f"https://{args.s3_bucket}.s3.{args.s3_region_name}.amazonaws.com/{args.experiment_name}/faces/"
-                    + source["face_id"]
-                    + ".jpg"
-                )
-                #validate image_url is working for the first image
-                if not image_urls_work:
-                    validate_image_url(image_url)
-                    image_urls_work = True
-
-                search_term = source["SearchTerm"]
-
-                mturk_layout_parameters = [
-                    {"Name": "image_url", "Value": image_url},
-                    {"Name": "search_term", "Value": search_term},
-                ]
-
-                mturk_hit_document = copy.deepcopy(source)
-                mturk_hit_document.update(
-                    {
-                        "hit_state": "indexed",
-                        "internal_hit_id": hashlib.sha256(
-                            "-".join(
-                                [
-                                    source["face_id"],
-                                    source["query"], # this internal hid id makes it so that we will only create 1 HIT for each face per query that generated that face. That is, the same face may have multiple hits, one for each query that returned it.
-                                    args.mturk_cropped_face_images_hit_type_id,
-                                    args.mturk_cropped_face_images_hit_layout_id,
-                                    json.dumps(mturk_layout_parameters, sort_keys=True),
-                                ]
-                            ).encode("utf-8")
-                        ).hexdigest(),
-                        "mturk_hit_type_id": args.mturk_cropped_face_images_hit_type_id,
-                        "mturk_hit_layout_id": args.mturk_cropped_face_images_hit_layout_id,
-                        "mturk_layout_parameters": mturk_layout_parameters,
+        composite_body = copy.deepcopy(query)
+        composite_body.update( 
+            {
+                "aggregations": {
+                    "search_term": {
+                        "composite": {
+                            "size": 5,
+                            "sources": [
+                                {"search_term": {"terms": { "field": "SearchTerm.keyword" }}},
+                            ]
+                        }
                     }
-                )
-
-                if document_exists(
-                    elasticsearch_client=elasticsearch_client,
-                    doc=mturk_hit_document,
-                    index="mturk-hits*",
-                    identity_fields=["internal_hit_id"]
+                }
+            }
+        )
+        with tqdm(total=experiment_face_count, desc="Scanning cropped-face documents to create mturk-hits") as pbar:
+            # first do a composite aggregation for each SearchTerm, then use that in query filter
+            for hit in get_response_value(
+                elasticsearch_client=elasticsearch_client,
+                index="cropped-face*",
+                query=composite_body,
+                value_keys=["aggregations", "search_term", "buckets", "*", "key"],
+                composite_aggregation_name="search_term",
+                #debug=True
+            ):
+                subquery = copy.deepcopy(query)
+                subquery["query"]["bool"]["filter"].append({"term": {"SearchTerm.keyword": hit["search_term"]}})
+                faces = 0
+                for cropped_face in scan(
+                    client=elasticsearch_client, index="cropped-face*", query=subquery
                 ):
-                    # more sophisticated approach -> involve Expiration date field for determining if hit is already "in the system" or not
-                    # skip faces that already have an associated mturk hit
-                    continue
-
-
-                mturk_hit_documents.append(mturk_hit_document)
-
-                pbar.update(1)
-                if len(mturk_hit_documents) >= 1000:
-                    # Index to Elasticsearch for every 1000 indexable hits
-                    index_to_elasticsearch(
-                        elasticsearch_client=elasticsearch_client,
-                        index=MTURK_HITS_INDEX_PATTERN,
-                        docs=mturk_hit_documents,
-                        identity_fields=["internal_hit_id"],
-                        apply_template=True,
-                        batch_size=500, # big documents, use small batches for indexing
+                    faces += 1
+                    source = cropped_face["_source"]
+                    image_url = (
+                        f"https://{args.s3_bucket}.s3.{args.s3_region_name}.amazonaws.com/{args.experiment_name}/faces/"
+                        + source["face_id"]
+                        + ".jpg"
                     )
-                    mturk_hit_documents = list()
+                    #validate image_url is working for the first image
+                    if not image_urls_work:
+                        validate_image_url(image_url)
+                        image_urls_work = True
+
+                    search_term = source["SearchTerm"]
+
+                    mturk_layout_parameters = [
+                        {"Name": "image_url", "Value": image_url},
+                        {"Name": "search_term", "Value": search_term},
+                    ]
+
+                    mturk_hit_document = copy.deepcopy(source)
+                    mturk_hit_document.update(
+                        {
+                            "hit_state": "indexed",
+                            "internal_hit_id": hashlib.sha256(
+                                "-".join(
+                                    [
+                                        source["face_id"],
+                                        source["query"], # this internal hid id makes it so that we will only create 1 HIT for each face per query that generated that face. That is, the same face may have multiple hits, one for each query that returned it.
+                                        "3D4VT3QYUCWL7JRPUQOUNKDGE1C4J8",#args.mturk_cropped_face_images_hit_type_id, # TODO REMOVE?
+                                        "3762G8VEYY2H7T4VA1O47WHLWI1CTW",#args.mturk_cropped_face_images_hit_layout_id, # TODO REMOVE?
+                                        json.dumps(mturk_layout_parameters, sort_keys=True),
+                                    ]
+                                ).encode("utf-8")
+                            ).hexdigest(),
+                            "mturk_hit_type_id": args.mturk_cropped_face_images_hit_type_id,
+                            "mturk_hit_layout_id": args.mturk_cropped_face_images_hit_layout_id,
+                            "mturk_layout_parameters": mturk_layout_parameters,
+                        }
+                    )
+
+                    pbar.update(1)
+                    if document_exists(
+                        elasticsearch_client=elasticsearch_client,
+                        doc=mturk_hit_document,
+                        index="mturk-hits*",
+                        identity_fields=["internal_hit_id"]
+                    ):
+                        # more sophisticated approach -> involve Expiration date field for determining if hit is already "in the system" or not
+                        # skip faces that already have an associated mturk hit
+                        continue
+
+
+                    mturk_hit_documents.append(mturk_hit_document)
+
+                    if len(mturk_hit_documents) >= 1000:
+                        # Index to Elasticsearch for every 1000 indexable hits
+                        index_to_elasticsearch(
+                            elasticsearch_client=elasticsearch_client,
+                            index=MTURK_HITS_INDEX_PATTERN,
+                            docs=mturk_hit_documents,
+                            identity_fields=["internal_hit_id"],
+                            apply_template=True,
+                            batch_size=500, # big documents, use small batches for indexing
+                            quiet=True,
+                        )
+                        mturk_hit_documents = list()
+                log.info(f"{faces} faces for {hit['search_term']} HITified")
 
 
 
