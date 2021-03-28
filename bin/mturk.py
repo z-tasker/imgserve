@@ -203,7 +203,6 @@ def main(args: argparse.Namespace) -> None:
                         **{"HITId": hit["hit_id"]},
                     ):
                         assignment_answer = xmltodict.parse(assignment_resp["Answer"])
-                        # TODO: 5 batch logic here, each hit still gets its own answer doc
                         for corresponding_hit in corresponding_hits:
                             mturk_answer = copy.deepcopy(corresponding_hit["_source"])
                             if "Question" in mturk_answer:
@@ -446,6 +445,16 @@ def main(args: argparse.Namespace) -> None:
                             quiet=True,
                         )
                         mturk_hit_documents = list()
+                index_to_elasticsearch(
+                    elasticsearch_client=elasticsearch_client,
+                    index=MTURK_HITS_INDEX_PATTERN,
+                    docs=mturk_hit_documents,
+                    identity_fields=["internal_hit_id"],
+                    apply_template=True,
+                    batch_size=500, # big documents, use small batches for indexing
+                    quiet=True,
+                )
+                mturk_hit_documents = list()
                 log.info(f"{faces} faces for {hit['search_term']} HITified")
 
 

@@ -30,7 +30,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: imgserve-web
-        image: mgraskertheband/imgserve-web:1.1.0
+        image: mgraskertheband/imgserve-web:2.2.0
         imagePullPolicy: Always
         env:
         - name: ES_CLIENT_FQDN

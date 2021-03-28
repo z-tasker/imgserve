@@ -3,7 +3,7 @@ import time
 
 from .api import MturkHitDocument
 
-def create_mturk_image_hit(mturk_client: botocore.clients.mturk, mturk_hit_type_id: str, mturk_hit_layout_id: str, mturk_hit_layout_parameters: List[Dict[str, str]], requester_annotation: str = "") -> Dict[str, Any]:
+def create_mturk_image_hit(mturk_client: botocore.clients.mturk, mturk_hit_type_id: str, mturk_hit_layout_id: str, mturk_hit_layout_parameters: List[Dict[str, str]], requester_annotation: str = "", max_assignments: int = 1) -> Dict[str, Any]:
     """
     See boto3 documentation for a description of all available parameters:
     https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mturk.html#MTurk.Client.create_hit_with_hit_type
@@ -13,7 +13,7 @@ def create_mturk_image_hit(mturk_client: botocore.clients.mturk, mturk_hit_type_
         HITTypeId=mturk_hit_type_id,
         HITLayoutId=mturk_hit_layout_id,
         HITLayoutParameters=mturk_hit_layout_parameters,
-        MaxAssignments=1,
+        MaxAssignments=max_assignments,
         LifetimeInSeconds=1209600,
         #AutoApprovalDelayInSeconds=900, # not supported here, must be set in HitType?
         RequesterAnnotation=requester_annotation,
