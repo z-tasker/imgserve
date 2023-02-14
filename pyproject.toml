@@ -7,7 +7,7 @@ authors = ["Loop Fellow <loops@ialcloud.xyz>"]
 [tool.poetry.dependencies]
 python = "^3.7"
 uvicorn = "^0.11.3"
-starlette = "^0.13.3"
+starlette = "^0.25.0"
 aiofiles = "^0.5.0"
 jinja2 = "^2.11.2"
 elasticsearch = "^7.6.0"
